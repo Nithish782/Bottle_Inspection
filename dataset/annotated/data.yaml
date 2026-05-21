@@ -1,0 +1,14 @@
+path: ../../dataset/annotated   # relative to training/
+train: images/train
+val:   images/val
+test:  images/test
+
+nc: 7
+names:
+  0: bottle
+  1: proper_fill
+  2: under_fill
+  3: over_fill
+  4: label_proper
+  5: label_torn
+  6: label_missing

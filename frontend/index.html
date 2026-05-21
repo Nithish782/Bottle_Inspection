@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AquaVision — Bottle Inspection System</title>
+<style>
+  :root{
+    --bg:#0d0f12;--surface:#141720;--surface2:#1c2030;--surface3:#242840;
+    --border:#2a2f45;--border2:#363d58;
+    --text:#e8eaf2;--text2:#8b91a8;--text3:#555d78;
+    --green:#00e676;--green-dim:#1a3a2a;--green-border:#00c853;
+    --red:#ff5252;--red-dim:#3a1a1a;--red-border:#d32f2f;
+    --amber:#ffab00;--amber-dim:#3a2e00;--amber-border:#ff8f00;
+    --blue:#448aff;--blue-dim:#1a2240;--blue-border:#2962ff;
+    --cyan:#00e5ff;
+    --font:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+
+  /* HEADER */
+  header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,#448aff,#00e5ff);border-radius:8px;display:flex;align-items:center;justify-content:center}
+  .logo-icon svg{width:18px;height:18px;fill:white}
+  .logo-text{font-size:16px;font-weight:700;letter-spacing:.5px}
+  .logo-sub{font-size:10px;color:var(--text2);letter-spacing:2px;text-transform:uppercase}
+  .header-status{display:flex;align-items:center;gap:20px}
+  .status-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;letter-spacing:.5px}
+  .status-pill.online{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
+  .status-pill.offline{background:var(--red-dim);color:var(--red);border:1px solid var(--red-border)}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .header-time{font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums}
+
+  /* LAYOUT */
+  .main{display:grid;grid-template-columns:1fr 320px;height:calc(100vh - 57px)}
+  .left{display:flex;flex-direction:column;border-right:1px solid var(--border)}
+  .right{display:flex;flex-direction:column;overflow-y:auto;background:var(--surface)}
+
+  /* CAMERA SOURCE SELECTOR */
+  .cam-selector{display:flex;gap:8px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+  .cam-tab{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font)}
+  .cam-tab:hover{border-color:var(--border2);color:var(--text)}
+  .cam-tab.active{background:var(--blue-dim);border-color:var(--blue-border);color:var(--blue)}
+  .cam-tab svg{width:15px;height:15px;fill:currentColor;flex-shrink:0}
+
+  /* CAMERA CONFIG PANEL */
+  .cam-config{padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:52px}
+  .cam-config input{flex:1;background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;font-size:13px;font-family:var(--font);outline:none}
+  .cam-config input:focus{border-color:var(--blue-border)}
+  .cam-config input::placeholder{color:var(--text3)}
+  .cam-config select{background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;font-size:13px;font-family:var(--font);cursor:pointer;outline:none}
+  .config-label{font-size:11px;color:var(--text3);white-space:nowrap;text-transform:uppercase;letter-spacing:.5px}
+
+  /* METRICS BAR */
+  .metrics-bar{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--border);background:var(--surface)}
+  .metric{padding:12px 16px;border-right:1px solid var(--border)}
+  .metric:last-child{border-right:none}
+  .metric-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
+  .metric-val{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .metric-val.green{color:var(--green)}
+  .metric-val.red{color:var(--red)}
+  .metric-val.cyan{color:var(--cyan)}
+  .metric-val.blue{color:var(--blue)}
+  .metric-sub{font-size:10px;color:var(--text3);margin-top:3px}
+
+  /* VIDEO AREA */
+  .video-area{flex:1;position:relative;background:#080a0e;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  #videoEl{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none}
+  #overlayCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+  .video-placeholder{display:flex;flex-direction:column;align-items:center;gap:16px;color:var(--text3);z-index:1}
+  .video-placeholder svg{width:64px;height:64px;opacity:.3;fill:var(--text3)}
+  .video-placeholder p{font-size:14px}
+  .fps-overlay{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.75);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--green);font-weight:600;display:none;z-index:10}
+  .latency-overlay{position:absolute;top:12px;left:104px;background:rgba(0,0,0,.75);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--cyan);font-weight:600;display:none;z-index:10}
+  .source-badge{position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,.75);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--text2);display:none;z-index:10}
+  .rec-badge{position:absolute;top:12px;right:12px;display:none;align-items:center;gap:6px;background:rgba(0,0,0,.75);border:1px solid var(--red-border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--red);font-weight:700;letter-spacing:1px;z-index:10}
+  .rec-dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:pulse .8s infinite}
+
+  /* CONTROLS */
+  .controls{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+  .btn{display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font)}
+  .btn-primary{background:var(--blue);color:white}
+  .btn-primary:hover{background:#5c9aff}
+  .btn-danger{background:var(--red-dim);color:var(--red);border:1px solid var(--red-border)}
+  .btn-danger:hover{background:#4a2020}
+  .btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+  .btn-ghost:hover{background:var(--surface3);color:var(--text)}
+  .btn svg{width:16px;height:16px;fill:currentColor}
+  .controls-right{margin-left:auto;display:flex;gap:8px}
+
+  /* RIGHT PANEL */
+  .panel-section{padding:16px;border-bottom:1px solid var(--border)}
+  .panel-title{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:12px;font-weight:600}
+  .bottle-cards{display:flex;flex-direction:column;gap:8px}
+  .bottle-card{background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:12px}
+  .bottle-card.pass{border-left:3px solid var(--green-border)}
+  .bottle-card.fail{border-left:3px solid var(--red-border)}
+  .bottle-card.warn{border-left:3px solid var(--amber-border)}
+  .bc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .bc-id{font-size:12px;font-weight:700;color:var(--text2)}
+  .bc-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.5px}
+  .bc-badge.pass{background:var(--green-dim);color:var(--green)}
+  .bc-badge.fail{background:var(--red-dim);color:var(--red)}
+  .bc-badge.warn{background:var(--amber-dim);color:var(--amber)}
+  .bc-rows{display:flex;flex-direction:column;gap:5px}
+  .bc-row{display:flex;align-items:center;justify-content:space-between;font-size:12px}
+  .bc-row-label{color:var(--text3)}
+  .bc-row-val{font-weight:600}
+  .bc-row-val.green{color:var(--green)}
+  .bc-row-val.red{color:var(--red)}
+  .bc-row-val.amber{color:var(--amber)}
+  .bc-row-val.blue{color:var(--blue)}
+  .conf-bar{height:3px;border-radius:2px;background:var(--surface3);margin-top:8px;overflow:hidden}
+  .conf-fill{height:100%;border-radius:2px;transition:width .3s}
+  .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .stat-card{background:var(--surface2);border-radius:8px;padding:10px 12px;border:1px solid var(--border)}
+  .stat-val{font-size:20px;font-weight:700}
+  .stat-label{font-size:10px;color:var(--text3);margin-top:2px}
+  .mini-chart{display:flex;align-items:flex-end;gap:3px;height:48px;padding-top:4px}
+  .log-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto}
+  .log-list::-webkit-scrollbar{width:4px}
+  .log-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+  .empty-state{text-align:center;padding:24px 16px;color:var(--text3);font-size:13px}
+  .empty-state svg{width:36px;height:36px;margin:0 auto 10px;display:block;opacity:.3;fill:var(--text3)}
+  .right::-webkit-scrollbar{width:4px}
+  .right::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 4 7 7v1H5v12a2 2 0 002 2h10a2 2 0 002-2V8h-2V7c0-3-2-5-5-5zm0 2c1.7 0 3 1.3 3 3v1H9V7c0-1.7 1.3-3 3-3zm0 8a2 2 0 110 4 2 2 0 010-4z"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">AquaVision</div>
+      <div class="logo-sub">Bottle Inspection System</div>
+    </div>
+  </div>
+  <div class="header-status">
+    <div class="status-pill offline" id="statusPill">
+      <div class="status-dot"></div>
+      <span id="statusText">OFFLINE</span>
+    </div>
+    <div class="header-time" id="clockEl">--:--:--</div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="left">
+
+    <!-- Camera Source Tabs -->
+    <div class="cam-selector">
+      <button class="cam-tab active" id="tab-webcam" onclick="switchSource('webcam')">
+        <svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/></svg>
+        Webcam
+      </button>
+      <button class="cam-tab" id="tab-mobile" onclick="switchSource('mobile')">
+        <svg viewBox="0 0 24 24"><path d="M17 1H7a2 2 0 00-2 2v18a2 2 0 002 2h10a2 2 0 002-2V3a2 2 0 00-2-2zm-5 20a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm5-4H7V4h10v13z"/></svg>
+        Mobile Camera
+      </button>
+      <button class="cam-tab" id="tab-rtsp" onclick="switchSource('rtsp')">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        RTSP Stream
+      </button>
+    </div>
+
+    <!-- Config Panel (changes per source) -->
+    <div class="cam-config" id="camConfig">
+      <!-- filled by JS -->
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-bar">
+      <div class="metric"><div class="metric-label">FPS</div><div class="metric-val green" id="mFps">--</div><div class="metric-sub">frames/sec</div></div>
+      <div class="metric"><div class="metric-label">Latency</div><div class="metric-val cyan" id="mLatency">-- ms</div><div class="metric-sub">inference</div></div>
+      <div class="metric"><div class="metric-label">Bottles</div><div class="metric-val blue" id="mBottles">0</div><div class="metric-sub">in frame</div></div>
+      <div class="metric"><div class="metric-label">Passed</div><div class="metric-val green" id="mPass">0</div><div class="metric-sub">total</div></div>
+      <div class="metric"><div class="metric-label">Failed</div><div class="metric-val red" id="mFail">0</div><div class="metric-sub">total</div></div>
+    </div>
+
+    <!-- Video -->
+    <div class="video-area" id="videoArea">
+      <video id="videoEl" autoplay muted playsinline></video>
+      <canvas id="overlayCanvas"></canvas>
+      <div class="video-placeholder" id="placeholder">
+        <svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/></svg>
+        <p id="placeholderText">Select a camera source and click Start</p>
+        <p style="font-size:12px;color:var(--text3)" id="placeholderSub">Choose Webcam, Mobile, or RTSP above</p>
+      </div>
+      <div class="fps-overlay"     id="fpsOverlay">FPS: --</div>
+      <div class="latency-overlay" id="latOverlay">LAT: -- ms</div>
+      <div class="source-badge"    id="sourceBadge">WEBCAM</div>
+      <div class="rec-badge"       id="recBadge"><div class="rec-dot"></div>LIVE</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button class="btn btn-primary" id="btnStart" onclick="startStream()">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        Start
+      </button>
+      <button class="btn btn-danger" id="btnStop" onclick="stopStream()" style="display:none">
+        <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+        Stop
+      </button>
+      <button class="btn btn-ghost" onclick="resetStats()">
+        <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-8 3.58-8 8s3.58 8 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        Reset
+      </button>
+      <div class="controls-right">
+        <button class="btn btn-ghost" onclick="captureSnapshot()">
+          <svg viewBox="0 0 24 24"><path d="M12 15.2A3.2 3.2 0 018.8 12 3.2 3.2 0 0112 8.8a3.2 3.2 0 013.2 3.2 3.2 3.2 0 01-3.2 3.2M12 7a5 5 0 00-5 5 5 5 0 005 5 5 5 0 005-5 5 5 0 00-5-5M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg>
+          Snapshot
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right">
+    <div class="panel-section">
+      <div class="panel-title">Active Detections</div>
+      <div class="bottle-cards" id="bottleCards">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 4 7 7v1H5v12a2 2 0 002 2h10a2 2 0 002-2V8h-2V7c0-3-2-5-5-5z"/></svg>
+          No bottles detected
+        </div>
+      </div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">Session Statistics</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-val green" id="sTotalPass">0</div><div class="stat-label">Total Passed</div></div>
+        <div class="stat-card"><div class="stat-val red"   id="sTotalFail">0</div><div class="stat-label">Total Failed</div></div>
+        <div class="stat-card"><div class="stat-val amber" id="sYield">--%</div><div class="stat-label">Yield Rate</div></div>
+        <div class="stat-card"><div class="stat-val cyan"  id="sAvgConf">--%</div><div class="stat-label">Avg Confidence</div></div>
+      </div>
+      <div style="margin-top:14px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Defect Breakdown</div>
+        <div id="defectBreakdown"></div>
+      </div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">Throughput — Last 20 Frames</div>
+      <div class="mini-chart" id="miniChart"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text3)"><span>Older</span><span>Recent</span></div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">Inspection Log</div>
+      <div class="log-list" id="logList">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--surface2);border-radius:6px;font-size:11px">
+          <div style="width:6px;height:6px;border-radius:50%;background:var(--text3)"></div>
+          <div style="color:var(--text3);min-width:52px">--:--:--</div>
+          <div style="color:var(--text2)">System initialized. Select a camera source.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/overlay.js?v=2"></script>
+<script src="js/stats.js?v=2"></script>
+<script src="js/camera.js?v=2"></script>
+<script src="js/app.js?v=2"></script>
+</body>
+</html>

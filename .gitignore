@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pt
+*.onnx
+training/runs/
+dataset/raw/
+.env

@@ -236,7 +236,7 @@ function connectWS_RTSP() {
         overlayEl.width  = overlayEl.offsetWidth;
         overlayEl.height = overlayEl.offsetHeight;
         ctx.drawImage(img, 0, 0, overlayEl.width, overlayEl.height);
-        if (data.bottles) drawBoxes(data.bottles, overlayEl);
+        if (data.bottles) drawBoxes(data.bottles, overlayEl, img);
       };
       img.src = "data:image/jpeg;base64," + data.frame;
     }
@@ -254,9 +254,17 @@ function onFrame(b64) {
 }
 
 // ── Draw boxes on canvas ──────────────────────────────────────────────
-function drawBoxes(bottles, canvas) {
-  const vW = videoEl.videoWidth  || canvas.offsetWidth;
-  const vH = videoEl.videoHeight || canvas.offsetHeight;
+function drawBoxes(bottles, canvas, img = null) {
+  let vW = canvas.offsetWidth;
+  let vH = canvas.offsetHeight;
+
+  if (img) {
+    vW = img.naturalWidth || img.width;
+    vH = img.naturalHeight || img.height;
+  } else if (currentSource === "webcam" && videoEl.readyState >= 2) {
+    vW = videoEl.videoWidth;
+    vH = videoEl.videoHeight;
+  }
 
   // Draw video frame first for webcam
   if (currentSource === "webcam" && videoEl.readyState >= 2) {
@@ -290,7 +298,9 @@ function handleResults(bottles, latency, tp, tf) {
   sYield.textContent    = total ? Math.round(tp/total*100)+"%" : "--%";
   sAvgConf.textContent  = conf  ? Math.round(conf*100)+"%" : "--%";
 
-  drawBoxes(bottles, overlayEl);
+  if (currentSource === "webcam") {
+    drawBoxes(bottles, overlayEl);
+  }
   renderBottleCards(bottles);
   Stats.renderChart(chartEl);
   Stats.renderDefects(defectEl);

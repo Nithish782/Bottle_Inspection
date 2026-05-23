@@ -50,8 +50,10 @@ class BottleInspector:
         detections = []
         if len(results) > 0:
             boxes = results[0].boxes
-            if len(boxes) > 0 and int(time.time()) % 2 == 0:
-                print(f"[DEBUG] Model detected {len(boxes)} objects. Classes: {[int(b.cls[0].item()) for b in boxes]}")
+            if len(boxes) > 0:
+                cls_list = [int(b.cls[0].item()) for b in boxes]
+                conf_list = [round(float(b.conf[0].item()), 2) for b in boxes]
+                print(f"[Inference] {len(boxes)} raw detections | Classes: {cls_list} | Confs: {conf_list}")
             
             for box in boxes:
                 cls_id = int(box.cls[0].item())
@@ -60,6 +62,8 @@ class BottleInspector:
                 detections.append(parse_bottle(cls_id, conf, xyxy))
 
         bottles = merge_bottle_detections(detections)
+        if bottles:
+            print(f"[Inference] → {len(bottles)} bottles merged | Pass: {sum(1 for b in bottles if b['pass'])}, Fail: {sum(1 for b in bottles if not b['pass'])}")
 
         latency_ms = round((time.perf_counter() - t0) * 1000, 2)
         return bottles, latency_ms

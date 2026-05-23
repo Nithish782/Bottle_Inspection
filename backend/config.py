@@ -32,7 +32,7 @@ LABEL_CLASSES = {4: "Proper Label", 5: "Torn Label",  6: "Missing Label"}
 PASS_CLASSES  = {1, 4}
 
 # ── Server ─────────────────────────────────────────────────────────────
-HOST = "0.0.0.0"
+HOST = "localhost"
 PORT = 8000
 
 # ── Performance ────────────────────────────────────────────────────────

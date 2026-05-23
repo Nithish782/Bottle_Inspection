@@ -94,6 +94,22 @@ function renderConfigPanel(src) {
 
 async function loadWebcamDevices() {
   try {
+    // Polyfill for older browsers / non-secure contexts
+    if (!navigator.mediaDevices) {
+      navigator.mediaDevices = {};
+    }
+    if (!navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia = function(cs) {
+        const gUM = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+        if (!gUM) {
+          return Promise.reject(new Error(
+            "Webcam access requires HTTPS or localhost. " +
+            "Please open this page via http://localhost or https://"
+          ));
+        }
+        return new Promise((resolve, reject) => gUM.call(navigator, cs, resolve, reject));
+      };
+    }
     // Request permission first so labels are populated
     await navigator.mediaDevices.getUserMedia({ video: true });
     const devices = await navigator.mediaDevices.enumerateDevices();

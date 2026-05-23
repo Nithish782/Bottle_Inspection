@@ -79,42 +79,117 @@ def parse_bottle(class_id, conf, box):
 
 def merge_bottle_detections(detections):
     """
-    Group fill + label detections that belong to the same physical bottle
-    using IoU overlap, then produce one result dict per bottle.
+    Group detections into per-bottle results.
+
+    Strategy:
+      1. If class-0 "bottle" anchors exist, use them as primary boxes and
+         pair each with the best-overlapping fill & label sub-detections.
+      2. Otherwise fall back to pairing fills with labels directly.
+      3. Any detection that doesn't pair still appears as a standalone bottle.
     """
-    fills  = [d for d in detections if d["is_fill"]]
-    labels = [d for d in detections if d["is_label"]]
+    bottle_anchors = [d for d in detections if d["class_id"] == BOTTLE_CLASS]
+    fills   = [d for d in detections if d["is_fill"]]
+    labels  = [d for d in detections if d["is_label"]]
 
     bottles = []
-    used_labels = set()
 
-    for i, f in enumerate(fills):
-        fb = np.array(f["box"])
-        best_iou, best_l = 0, None
+    # ── Path A: class-0 anchors present ────────────────────────────────
+    if bottle_anchors:
+        used_fills, used_labels = set(), set()
 
+        for i, anchor in enumerate(bottle_anchors):
+            ab = np.array(anchor["box"])
+
+            # Best overlapping fill
+            best_f_iou, best_f = 0, None
+            for fi, f in enumerate(fills):
+                if fi in used_fills:
+                    continue
+                iou = box_iou(ab, np.array(f["box"]))
+                if iou > best_f_iou:
+                    best_f_iou, best_f = iou, fi
+            fill_det = fills[best_f] if best_f is not None and best_f_iou > 0.05 else None
+            if best_f is not None and best_f_iou > 0.05:
+                used_fills.add(best_f)
+
+            # Best overlapping label
+            best_l_iou, best_l = 0, None
+            for li, l in enumerate(labels):
+                if li in used_labels:
+                    continue
+                iou = box_iou(ab, np.array(l["box"]))
+                if iou > best_l_iou:
+                    best_l_iou, best_l = iou, li
+            label_det = labels[best_l] if best_l is not None and best_l_iou > 0.05 else None
+            if best_l is not None and best_l_iou > 0.05:
+                used_labels.add(best_l)
+
+            fill_name  = fill_det["class_name"]  if fill_det  else "unknown"
+            label_name = label_det["class_name"] if label_det else "unknown"
+            fill_conf  = fill_det["conf"]        if fill_det  else 0.0
+            label_conf = label_det["conf"]       if label_det else 0.0
+
+            fill_pass  = fill_det["pass"]  if fill_det  else False
+            label_pass = label_det["pass"] if label_det else False
+            passed = fill_pass and label_pass
+
+            confs = [c for c in [anchor["conf"], fill_conf, label_conf] if c > 0]
+            avg_conf = round(sum(confs) / max(len(confs), 1), 3)
+
+            bottles.append({
+                "id":           i + 1,
+                "fill":         fill_name,
+                "fill_conf":    fill_conf,
+                "label":        label_name,
+                "label_conf":   label_conf,
+                "box":          anchor["box"],
+                "pass":         passed,
+                "overall_conf": avg_conf,
+            })
+
+    # ── Path B: no anchors — pair fills with labels directly ───────────
+    else:
+        used_labels_set = set()
+        for i, f in enumerate(fills):
+            fb = np.array(f["box"])
+            best_iou, best_l = 0, None
+
+            for j, l in enumerate(labels):
+                if j in used_labels_set:
+                    continue
+                iou = box_iou(fb, np.array(l["box"]))
+                if iou > best_iou:
+                    best_iou, best_l = iou, j
+
+            label_det = labels[best_l] if best_l is not None and best_iou > 0.1 else None
+            if best_l is not None:
+                used_labels_set.add(best_l)
+
+            passed = f["pass"] and (label_det["pass"] if label_det else False)
+            bottles.append({
+                "id":           i + 1,
+                "fill":         f["class_name"],
+                "fill_conf":    f["conf"],
+                "label":        label_det["class_name"] if label_det else "label_missing",
+                "label_conf":   label_det["conf"]       if label_det else 0.0,
+                "box":          f["box"],
+                "pass":         passed,
+                "overall_conf": round((f["conf"] + (label_det["conf"] if label_det else 0)) / 2, 3),
+            })
+
+        # ── Orphan labels with no fill match → still show them ─────────
         for j, l in enumerate(labels):
-            if j in used_labels:
-                continue
-            lb  = np.array(l["box"])
-            iou = box_iou(fb, lb)
-            if iou > best_iou:
-                best_iou, best_l = iou, j
-
-        label_det = labels[best_l] if best_l is not None and best_iou > 0.1 else None
-        if best_l is not None:
-            used_labels.add(best_l)
-
-        passed = f["pass"] and (label_det["pass"] if label_det else False)
-        bottles.append({
-            "id":           i + 1,
-            "fill":         f["class_name"],
-            "fill_conf":    f["conf"],
-            "label":        label_det["class_name"] if label_det else "label_missing",
-            "label_conf":   label_det["conf"]       if label_det else 0.0,
-            "box":          f["box"],
-            "pass":         passed,
-            "overall_conf": round((f["conf"] + (label_det["conf"] if label_det else 0)) / 2, 3),
-        })
+            if j not in used_labels_set and not fills:
+                bottles.append({
+                    "id":           len(bottles) + 1,
+                    "fill":         "unknown",
+                    "fill_conf":    0.0,
+                    "label":        l["class_name"],
+                    "label_conf":   l["conf"],
+                    "box":          l["box"],
+                    "pass":         False,
+                    "overall_conf": l["conf"],
+                })
 
     return bottles
 

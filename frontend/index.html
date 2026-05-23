@@ -36,7 +36,7 @@
 
   /* LAYOUT */
   .main{display:grid;grid-template-columns:1fr 320px;height:calc(100vh - 57px)}
-  .left{display:flex;flex-direction:column;border-right:1px solid var(--border)}
+  .left{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0;overflow:hidden}
   .right{display:flex;flex-direction:column;overflow-y:auto;background:var(--surface)}
 
   /* CAMERA SOURCE SELECTOR */
@@ -67,8 +67,8 @@
   .metric-sub{font-size:10px;color:var(--text3);margin-top:3px}
 
   /* VIDEO AREA */
-  .video-area{flex:1;position:relative;background:#080a0e;display:flex;align-items:center;justify-content:center;overflow:hidden}
-  #videoEl{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none}
+  .video-area{flex:1;position:relative;background:#080a0e;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0}
+  #videoEl{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;background:#000;display:none}
   #overlayCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
   .video-placeholder{display:flex;flex-direction:column;align-items:center;gap:16px;color:var(--text3);z-index:1}
   .video-placeholder svg{width:64px;height:64px;opacity:.3;fill:var(--text3)}
@@ -127,6 +127,13 @@
   .empty-state svg{width:36px;height:36px;margin:0 auto 10px;display:block;opacity:.3;fill:var(--text3)}
   .right::-webkit-scrollbar{width:4px}
   .right::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+  /* Responsive: stack layout on smaller screens */
+  @media(max-width:1024px){
+    .main{grid-template-columns:1fr;grid-template-rows:1fr auto}
+    .left{border-right:none;border-bottom:1px solid var(--border)}
+    .right{max-height:40vh}
+  }
 </style>
 </head>
 <body>

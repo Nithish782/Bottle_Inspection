@@ -11,7 +11,7 @@ const Overlay = (() => {
     if (bottle.pass) return COLOR.pass;
     const fill  = bottle.fill  || "";
     const label = bottle.label || "";
-    const isWarn = fill === "fill_under" || label === "label_torn";
+    const isWarn = fill === "under_fill" || label === "label_torn";
     return isWarn ? COLOR.warn : COLOR.fail;
   }
 
@@ -67,8 +67,8 @@ const Overlay = (() => {
   function _label(ctx, b, sx, sy, col) {
     const status = b.pass ? "PASS" : "FAIL";
     const conf   = Math.round((b.overall_conf || 0) * 100);
-    const fill   = (b.fill  || "").replace("fill_",  "").replace("_", " ");
-    const label  = (b.label || "").replace("label_", "").replace("_", " ");
+    const fill   = (b.fill  || "").replace(/_/g, " ");
+    const label  = (b.label || "").replace(/_/g, " ");
     const text   = `#${b.id || "?"} ${status} | ${fill} | ${label} | ${conf}%`;
 
     ctx.font = "bold 12px Inter, sans-serif";
@@ -85,8 +85,8 @@ const Overlay = (() => {
     const fill = b.fill || "";
     let ratio = 0.25;
     let lineCol = "#448aff";
-    if (fill === "fill_under")  { ratio = 0.65; lineCol = "#ffab00"; }
-    if (fill === "fill_over")   { ratio = 0.05; lineCol = "#ff5252"; }
+    if (fill === "under_fill")  { ratio = 0.65; lineCol = "#ffab00"; }
+    if (fill === "over_fill")   { ratio = 0.05; lineCol = "#ff5252"; }
 
     const fy = sy + sh * ratio;
     ctx.setLineDash([5, 4]);

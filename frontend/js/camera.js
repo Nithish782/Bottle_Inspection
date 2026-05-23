@@ -32,7 +32,25 @@ const Camera = (() => {
 
   async function start(constraints) {
     const c = constraints || { video: { width:{ideal:1280}, height:{ideal:720} } };
-    stream        = await navigator.mediaDevices.getUserMedia(c);
+
+    // Polyfill for older browsers
+    if (!navigator.mediaDevices) {
+      navigator.mediaDevices = {};
+    }
+    if (!navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia = function(cs) {
+        const gUM = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+        if (!gUM) {
+          return Promise.reject(new Error(
+            "Webcam access requires HTTPS or localhost. " +
+            "Please open this page via http://localhost or https://"
+          ));
+        }
+        return new Promise((resolve, reject) => gUM.call(navigator, cs, resolve, reject));
+      };
+    }
+
+    stream = await navigator.mediaDevices.getUserMedia(c);
     videoEl.srcObject = stream;
     await videoEl.play();
     captureCanvas.width  = videoEl.videoWidth  || 1280;

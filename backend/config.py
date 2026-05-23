@@ -10,7 +10,7 @@ MODEL_PATH = MODEL_PT if os.path.exists(MODEL_PT) else MODEL_ONNX
 
 # ── Model ──────────────────────────────────────────────────────────────
 INPUT_SIZE  = 640        # YOLOv8 input resolution
-CONF_THRESH = 0.45       # minimum confidence to keep a detection
+CONF_THRESH = 0.25       # lowered to catch faint detections
 IOU_THRESH  = 0.5        # NMS IoU threshold
 
 # ── Classes ────────────────────────────────────────────────────────────

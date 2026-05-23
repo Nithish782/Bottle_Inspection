@@ -30,7 +30,7 @@ def health():
     return {"status": "ok"}
 
 # ── Session counters ──────────────────────────────────────────────────
-session = {"total_pass": 0, "total_fail": 0, "frames": 0}
+session = {"total_pass": 0, "total_fail": 0, "frames": 0, "counted_ids": set()}
 _min_frame_gap = 1.0 / MAX_FPS
 
 # ── RTSP state ────────────────────────────────────────────────────────
@@ -91,8 +91,10 @@ async def websocket_endpoint(ws: WebSocket):
 
             session["frames"] += 1
             for b in bottles:
-                if b["pass"]: session["total_pass"] += 1
-                else:         session["total_fail"] += 1
+                if b.get("id") not in session["counted_ids"]:
+                    session["counted_ids"].add(b.get("id"))
+                    if b["pass"]: session["total_pass"] += 1
+                    else:         session["total_fail"] += 1
 
             await ws.send_json({
                 "bottles":    bottles,
@@ -123,8 +125,10 @@ async def websocket_rtsp(ws: WebSocket):
 
             session["frames"] += 1
             for b in bottles:
-                if b["pass"]: session["total_pass"] += 1
-                else:         session["total_fail"] += 1
+                if b.get("id") not in session["counted_ids"]:
+                    session["counted_ids"].add(b.get("id"))
+                    if b["pass"]: session["total_pass"] += 1
+                    else:         session["total_fail"] += 1
 
             # Encode frame as JPEG base64 to send to browser
             _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
@@ -146,6 +150,7 @@ def reset_session():
     session["total_pass"] = 0
     session["total_fail"] = 0
     session["frames"]     = 0
+    session["counted_ids"] = set()
     return {"status": "reset"}
 
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")

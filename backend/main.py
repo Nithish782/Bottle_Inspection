@@ -37,6 +37,18 @@ _min_frame_gap = 1.0 / MAX_FPS
 rtsp_cap    = None
 rtsp_active = False
 
+# ── ROI state ─────────────────────────────────────────────────────────
+active_rois = []
+
+class RoiBody(BaseModel):
+    rois: list
+
+@app.post("/set-roi")
+def set_roi(body: RoiBody):
+    global active_rois
+    active_rois = body.rois
+    return {"status": "ok", "count": len(active_rois)}
+
 class RtspBody(BaseModel):
     url: str
 
@@ -87,6 +99,24 @@ async def websocket_endpoint(ws: WebSocket):
                 continue
 
             bottles, latency = inspector.run(frame)
+            # Filter bottles by ROI if any are configured
+            if active_rois:
+                frame_h, frame_w = frame.shape[:2]
+                filtered_bottles = []
+                for b in bottles:
+                    bx1, by1, bx2, by2 = b["bbox"]
+                    bcx = ((bx1 + bx2) / 2) / frame_w
+                    bcy = ((by1 + by2) / 2) / frame_h
+                    
+                    in_roi = False
+                    for r in active_rois:
+                        if r["x"] <= bcx <= (r["x"] + r["w"]) and r["y"] <= bcy <= (r["y"] + r["h"]):
+                            in_roi = True
+                            break
+                    if in_roi:
+                        filtered_bottles.append(b)
+                bottles = filtered_bottles
+                
             bottles = tracker.update(bottles)
 
             session["frames"] += 1

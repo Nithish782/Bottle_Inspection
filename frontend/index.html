@@ -3,39 +3,33 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>AquaVision — Premium Inspection System</title>
+<title>AquaVision — Industrial AI Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!-- Chart.js for Analytics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   :root {
     /* Industrial Cyberpunk Dark Theme */
-    --bg-base: #09090b; /* Zinc 950 */
-    --surface-1: rgba(24, 24, 27, 0.6); /* Zinc 900 semi-transparent */
-    --surface-2: rgba(39, 39, 42, 0.7); /* Zinc 800 */
-    --surface-3: #27272a; /* Zinc 800 solid */
-    --border: rgba(63, 63, 70, 0.5); /* Zinc 700 */
-    --border-hover: rgba(82, 82, 91, 0.8); /* Zinc 600 */
+    --bg-base: #050505;
+    --surface-1: #0a0a0c;
+    --surface-2: #121214;
+    --surface-3: #1a1a1e;
     
-    --text-primary: #f4f4f5; /* Zinc 50 */
-    --text-secondary: #a1a1aa; /* Zinc 400 */
-    --text-muted: #71717a; /* Zinc 500 */
+    --border: rgba(255, 255, 255, 0.1);
+    --border-hover: rgba(255, 255, 255, 0.25);
+    
+    --text-primary: #ffffff;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
     
     /* Neon Status Colors */
-    --neon-green: #10b981; /* Emerald 500 */
-    --neon-green-dim: rgba(16, 185, 129, 0.15);
-    
-    --neon-red: #ef4444; /* Red 500 */
-    --neon-red-dim: rgba(239, 68, 68, 0.15);
-    
-    --neon-amber: #f59e0b; /* Amber 500 */
-    --neon-amber-dim: rgba(245, 158, 11, 0.15);
-    
-    --neon-cyan: #06b6d4; /* Cyan 500 */
-    --neon-cyan-dim: rgba(6, 182, 212, 0.15);
-    
-    --neon-blue: #3b82f6; /* Blue 500 */
-    --neon-blue-dim: rgba(59, 130, 246, 0.15);
+    --neon-green: #10b981; 
+    --neon-red: #ef4444;
+    --neon-amber: #f59e0b;
+    --neon-cyan: #06b6d4;
+    --neon-blue: #3b82f6;
 
     --font-ui: 'Inter', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
@@ -45,706 +39,413 @@
   
   body {
     background: var(--bg-base);
-    background-image: 
-      radial-gradient(circle at 15% 50%, rgba(6, 182, 212, 0.05), transparent 25%),
-      radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.05), transparent 25%);
     color: var(--text-primary);
     font-family: var(--font-ui);
-    height: 100vh; /* Locked height */
-    overflow: hidden; /* Absolutely no page-level scrolling */
+    height: 100vh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
   }
 
-  /* Glassmorphism Utilities */
-  .glass {
-    background: var(--surface-1);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-  }
-
-  /* HEADER */
-  header {
+  /* Global Layout */
+  .top-navbar {
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 32px;
+    padding: 0 24px;
     background: var(--surface-1);
-    backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-
-  .logo { display: flex; align-items: center; gap: 14px; }
-  
-  .logo-icon {
-    width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, var(--neon-blue), var(--neon-cyan));
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 15px var(--neon-cyan-dim);
-  }
-  
-  .logo-icon svg { width: 20px; height: 20px; fill: white; }
-  
-  .logo-text-wrapper { display: flex; flex-direction: column; }
-  .logo-text { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
-  .logo-sub { font-size: 11px; color: var(--text-secondary); letter-spacing: 2.5px; text-transform: uppercase; }
-  
-  .header-status { display: flex; align-items: center; gap: 24px; }
-  
-  .status-pill {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  
-  .status-pill.online {
-    background: var(--neon-green-dim);
-    color: var(--neon-green);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    box-shadow: 0 0 10px var(--neon-green-dim);
-  }
-  
-  .status-pill.offline {
-    background: var(--neon-red-dim);
-    color: var(--neon-red);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-  }
-  
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: pulse 1.5s infinite;
-  }
-  
-  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
-  
-  .header-time {
-    font-size: 14px;
-    color: var(--neon-cyan);
-    font-family: var(--font-mono);
-    font-weight: 500;
-  }
-
-  /* LAYOUT */
-  .main {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 260px 1fr 380px;
-    height: calc(100vh - 69px);
-  }
-  
-  .sidebar-left {
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--border);
-    background: var(--surface-1);
-    backdrop-filter: blur(12px);
-    overflow: hidden;
-  }
-  
-  .center {
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--border);
-    min-height: 0;
-    overflow: hidden;
-  }
-  
-  .right {
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    background: var(--surface-1);
-    backdrop-filter: blur(12px);
-  }
-
-  /* CAMERA SOURCE SELECTOR */
-  .cam-selector {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 24px 20px;
-    background: rgba(24, 24, 27, 0.4);
-    border-bottom: 1px solid var(--border);
-  }
-  
-  .cam-tab {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: var(--font-ui);
-  }
-  
-  .cam-tab:hover {
-    border-color: var(--border-hover);
-    color: var(--text-primary);
-    transform: translateX(2px);
-  }
-  
-  .cam-tab.active {
-    background: var(--neon-blue-dim);
-    border-color: var(--neon-blue);
-    color: var(--neon-blue);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
-  }
-  
-  .cam-tab svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
-
-  /* CAMERA CONFIG PANEL */
-  .cam-config {
-    padding: 20px;
-    background: rgba(24, 24, 27, 0.2);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .cam-config input, .cam-config select {
-    width: 100%;
-    background: var(--surface-3);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    padding: 10px 14px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-family: var(--font-mono);
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  
-  .cam-config input:focus, .cam-config select:focus {
-    border-color: var(--neon-cyan);
-    box-shadow: 0 0 0 2px var(--neon-cyan-dim);
-  }
-  
-  .config-label {
-    font-size: 11px;
-    color: var(--text-muted);
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 600;
-  }
-
-  /* METRICS BAR */
-  .metrics-bar {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    border-bottom: 1px solid var(--border);
-    background: rgba(24, 24, 27, 0.3);
-  }
-  
-  .metric {
-    padding: 16px 20px;
-    border-right: 1px solid var(--border);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .metric:last-child { border-right: none; }
-  
-  .metric::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 2px;
-    background: transparent;
-    transition: background 0.3s;
-  }
-  
-  .metric:hover::before {
-    background: var(--neon-blue);
-  }
-  
-  .metric-label {
-    font-size: 11px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin-bottom: 8px;
-    font-weight: 600;
-  }
-  
-  .metric-val {
-    font-size: 28px;
-    font-weight: 700;
-    font-family: var(--font-mono);
-    line-height: 1;
-  }
-  
-  .metric-val.green { color: var(--neon-green); text-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
-  .metric-val.red { color: var(--neon-red); text-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
-  .metric-val.cyan { color: var(--neon-cyan); text-shadow: 0 0 10px rgba(6, 182, 212, 0.4); }
-  .metric-val.blue { color: var(--neon-blue); text-shadow: 0 0 10px rgba(59, 130, 246, 0.4); }
-  
-  .metric-sub {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-top: 6px;
-    font-family: var(--font-mono);
-  }
-
-  /* VIDEO AREA - SQUARE CONSTRAINT */
-  .video-wrapper {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: radial-gradient(circle at center, #18181b 0%, #09090b 100%);
-    padding: 24px;
-    min-height: 0;
-  }
-
-  .video-area {
-    position: relative;
-    max-width: 100%;
-    max-height: 100%;
-    height: 100%; /* Expands to parent height */
-    aspect-ratio: 1 / 1; /* FORCES SQUARE */
-    /* max-width: 100% will shrink the height proportionally if width is constrained */
-    background: #000;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255,255,255,0.05);
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  #videoEl {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    object-fit: contain; /* Keeps original feed inside the square */
-    background: #000;
-    display: none;
-  }
-  
-  #overlayCanvas {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none;
-    z-index: 5;
-  }
-  
-  .video-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    color: var(--text-muted);
-    z-index: 1;
-  }
-  
-  .video-placeholder svg { width: 72px; height: 72px; opacity: 0.2; fill: currentColor; }
-  .video-placeholder p { font-size: 16px; font-weight: 500; }
-  
-  /* OVERLAYS ON VIDEO */
-  .overlay-badge {
-    position: absolute;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-family: var(--font-mono);
-    font-weight: 600;
-    z-index: 10;
-  }
-
-  .fps-overlay { top: 16px; left: 16px; color: var(--neon-green); display: none; }
-  .latency-overlay { top: 16px; left: 110px; color: var(--neon-cyan); display: none; }
-  .source-badge { bottom: 16px; left: 16px; color: var(--text-secondary); display: none; }
-  
-  .rec-badge {
-    top: 16px; right: 16px;
-    display: none;
-    align-items: center;
-    gap: 8px;
-    color: var(--neon-red);
-    border-color: rgba(239, 68, 68, 0.3);
-    letter-spacing: 1.5px;
-  }
-  
-  .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--neon-red); animation: pulse 1s infinite; }
-
-  /* SCANLINE EFFECT */
-  .video-area::after {
-    content: " ";
-    display: block;
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    z-index: 2;
-    background-size: 100% 4px, 6px 100%;
-    pointer-events: none;
-    opacity: 0.4;
-  }
-
-  /* CONTROLS */
-  .controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px 24px;
-    background: var(--surface-1);
-    border-top: 1px solid var(--border);
     flex-shrink: 0;
   }
   
-  .btn {
+  .app-body {
+    flex: 1;
     display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    border-radius: 8px;
-    border: none;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    font-family: var(--font-ui);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-  
-  .btn-primary {
-    background: var(--neon-blue);
-    color: white;
-  }
-  
-  .btn-primary:hover {
-    background: #4f46e5;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  }
-  
-  .btn-danger {
-    background: var(--neon-red-dim);
-    color: var(--neon-red);
-    border: 1px solid rgba(239, 68, 68, 0.4);
-  }
-  
-  .btn-danger:hover {
-    background: rgba(239, 68, 68, 0.25);
-    transform: translateY(-1px);
-  }
-  
-  .btn-ghost {
-    background: var(--surface-3);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-  }
-  
-  .btn-ghost:hover {
-    background: var(--border-hover);
-    transform: translateY(-1px);
-  }
-  
-  .btn svg { width: 18px; height: 18px; fill: currentColor; }
-  .controls-right { margin-left: auto; display: flex; gap: 12px; }
-
-  /* RIGHT PANEL */
-  .panel-section { padding: 24px; border-bottom: 1px solid var(--border); }
-  
-  .panel-title {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--text-secondary);
-    margin-bottom: 16px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .panel-title::before {
-    content: '';
-    display: block;
-    width: 4px;
-    height: 12px;
-    background: var(--neon-cyan);
-    border-radius: 2px;
-  }
-  
-  .bottle-cards { display: flex; flex-direction: column; gap: 12px; }
-  
-  .bottle-card {
-    background: var(--surface-2);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    padding: 16px;
-    transition: transform 0.2s;
-  }
-  
-  .bottle-card:hover { transform: translateX(2px); }
-  
-  .bottle-card.pass { border-left: 4px solid var(--neon-green); }
-  .bottle-card.fail { border-left: 4px solid var(--neon-red); }
-  .bottle-card.warn { border-left: 4px solid var(--neon-amber); }
-  
-  .bc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .bc-id { font-size: 14px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
-  
-  .bc-badge {
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 6px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  
-  .bc-badge.pass { background: var(--neon-green-dim); color: var(--neon-green); }
-  .bc-badge.fail { background: var(--neon-red-dim); color: var(--neon-red); }
-  .bc-badge.warn { background: var(--neon-amber-dim); color: var(--neon-amber); }
-  
-  .bc-rows { display: flex; flex-direction: column; gap: 8px; }
-  .bc-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-  .bc-row-label { color: var(--text-secondary); }
-  .bc-row-val { font-weight: 600; font-family: var(--font-mono); }
-  
-  .bc-row-val.green { color: var(--neon-green); }
-  .bc-row-val.red { color: var(--neon-red); }
-  .bc-row-val.amber { color: var(--neon-amber); }
-  .bc-row-val.blue { color: var(--neon-blue); }
-  
-  .conf-bar {
-    height: 4px;
-    border-radius: 2px;
-    background: var(--surface-3);
-    margin-top: 12px;
     overflow: hidden;
   }
   
-  .conf-fill { height: 100%; border-radius: 2px; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-  
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  
-  .stat-card {
-    background: var(--surface-2);
-    border-radius: 12px;
-    padding: 16px;
-    border: 1px solid var(--border);
-    text-align: center;
-  }
-  
-  .stat-val { font-size: 24px; font-weight: 700; font-family: var(--font-mono); }
-  .stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-  
-  .mini-chart { display: flex; align-items: flex-end; gap: 4px; height: 60px; padding-top: 8px; }
-  
-  .log-list {
+  .left-sidebar {
+    width: 240px;
+    background: var(--surface-1);
+    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    padding: 24px 16px;
     gap: 8px;
-    max-height: 240px;
-    overflow-y: auto;
-    padding-right: 8px;
+    flex-shrink: 0;
   }
   
-  .log-list::-webkit-scrollbar { width: 6px; }
-  .log-list::-webkit-scrollbar-track { background: var(--surface-3); border-radius: 3px; }
-  .log-list::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
+  .content-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-base);
+  }
   
-  .right::-webkit-scrollbar { width: 8px; }
-  .right::-webkit-scrollbar-track { background: var(--bg-base); }
-  .right::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-  .right::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
-
-  .empty-state { text-align: center; padding: 32px 16px; color: var(--text-muted); font-size: 14px; }
-  .empty-state svg { width: 48px; height: 48px; margin: 0 auto 16px; display: block; opacity: 0.2; fill: currentColor; }
-
-  @media(max-width: 1200px) {
-    .main { grid-template-columns: 240px 1fr; grid-template-rows: 1fr auto; }
-    .center { border-right: none; border-bottom: 1px solid var(--border); }
-    .right { max-height: 50vh; grid-column: span 2; }
+  .page-section {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
   }
-  @media(max-width: 900px) {
-    .main { grid-template-columns: 1fr; }
-    .sidebar-left { border-right: none; border-bottom: 1px solid var(--border); }
-    .right { grid-column: 1; }
+  
+  .page-section.active { display: flex; }
+
+  /* TOP NAVBAR COMPONENTS */
+  .logo-section { display: flex; align-items: center; gap: 12px; }
+  .logo-circle {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--neon-cyan);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
   }
+  .logo-circle svg { width: 16px; height: 16px; fill: var(--neon-cyan); }
+  .logo-title { font-size: 16px; font-weight: 600; letter-spacing: 1px; }
+  
+  .user-section { display: flex; align-items: center; gap: 16px; }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+  }
+  .status-pill.online { color: var(--neon-green); border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.05); }
+  .status-pill.offline { color: var(--neon-red); border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .clock { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+
+  /* SIDEBAR COMPONENTS */
+  .nav-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-item:hover { background: var(--surface-2); color: var(--text-primary); }
+  .nav-item.active {
+    background: var(--surface-2);
+    border: 1px solid var(--border-hover);
+    color: var(--neon-cyan);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .nav-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+  /* Diamond outline icon SVG styling */
+  .nav-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; }
+
+  /* --- PAGE 1: LIVE CAMERA --- */
+  .live-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: 100%;
+  }
+  
+  .live-center {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+  
+  .metrics-bar {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-1);
+    flex-shrink: 0;
+  }
+  
+  .metric { padding: 12px 16px; border-right: 1px solid var(--border); }
+  .metric:last-child { border-right: none; }
+  .metric-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .metric-val { font-size: 22px; font-weight: 700; font-family: var(--font-mono); }
+  .metric-sub { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+  
+  .video-wrapper {
+    flex: 1; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    background: radial-gradient(circle at center, #111 0%, #000 100%);
+  }
+  
+  .video-area {
+    position: relative;
+    width: 200vh; max-width: 100%; max-height: 100%;
+    aspect-ratio: 1 / 1;
+    background: #000;
+    border: 1px solid var(--border-hover);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  
+  #videoEl { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; }
+  #overlayCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+  
+  .overlay-badge { position: absolute; background: rgba(0,0,0,0.8); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 11px; font-family: var(--font-mono); z-index: 10; }
+  .fps-overlay { top: 12px; left: 12px; color: var(--neon-green); display: none; }
+  .latency-overlay { top: 12px; left: 85px; color: var(--neon-cyan); display: none; }
+  .source-badge { bottom: 12px; left: 12px; color: var(--text-secondary); display: none; }
+  
+  .placeholder { text-align: center; color: var(--text-muted); }
+  .placeholder svg { width: 48px; height: 48px; stroke: currentColor; stroke-width: 1; fill: none; margin-bottom: 12px; opacity: 0.5; }
+  
+  .live-right { display: flex; flex-direction: column; background: var(--surface-1); overflow-y: auto; }
+  .panel-section { padding: 20px; border-bottom: 1px solid var(--border); }
+  .panel-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); margin-bottom: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .panel-title::before { content: ''; display: block; width: 3px; height: 10px; background: var(--text-primary); }
+  
+  .bottle-cards { display: flex; flex-direction: column; gap: 10px; }
+  .bottle-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .bottle-card.pass { border-left: 3px solid var(--neon-green); }
+  .bottle-card.fail { border-left: 3px solid var(--neon-red); }
+  
+  /* --- PAGE 2: ANALYTICS --- */
+  .analytics-layout { padding: 32px; overflow-y: auto; height: 100%; }
+  .analytics-header { margin-bottom: 24px; font-size: 20px; font-weight: 600; }
+  .charts-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-bottom: 24px; }
+  .chart-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .chart-card.full-width { grid-column: 1 / -1; }
+  .chart-container { position: relative; height: 300px; width: 100%; }
+  .pie-container { height: 250px; }
+
+  /* --- PAGE 3: ROI & CAMERA ADD --- */
+  .roi-layout { display: grid; grid-template-columns: 1fr 350px; height: 100%; }
+  .roi-center { display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+  
+  .cam-source-panel { padding: 20px; background: var(--surface-1); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
+  .source-tabs { display: flex; gap: 10px; }
+  .source-tab { flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--surface-2); border-radius: 6px; color: var(--text-secondary); font-size: 12px; text-align: center; cursor: pointer; }
+  .source-tab.active { border-color: var(--neon-cyan); color: var(--neon-cyan); background: rgba(6, 182, 212, 0.05); }
+  .cam-config { display: flex; gap: 10px; }
+  .cam-config input, .cam-config select { flex: 1; background: var(--surface-2); border: 1px solid var(--border); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; outline: none; }
+  
+  .roi-canvas-container { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: hidden; }
+  .roi-workarea { position: relative; width: 100%; height: 100%; border: 1px dashed var(--border-hover); }
+  #roi-bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+  #roi-draw-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; }
+  
+  .roi-right { background: var(--surface-1); display: flex; flex-direction: column; overflow-y: auto; }
+  .roi-controls { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; }
+  .form-group input, .form-group select { background: var(--surface-2); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 6px; font-size: 13px; outline: none; }
+  
+  .btn { padding: 10px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: 0.2s; text-align: center; }
+  .btn-primary { background: var(--neon-cyan); color: #000; }
+  .btn-primary:hover { background: #08c8e8; }
+  .btn-outline { background: transparent; border-color: var(--border); color: var(--text-primary); }
+  .btn-outline:hover { background: var(--surface-2); }
+  .btn-danger { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: var(--neon-red); }
+  
+  .roi-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .roi-item { padding: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+  
+  /* Utils */
+  .text-green { color: var(--neon-green); }
+  .text-red { color: var(--neon-red); }
+  .text-cyan { color: var(--neon-cyan); }
+  
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div class="logo-icon">
-      <svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 4 7 7v1H5v12a2 2 0 002 2h10a2 2 0 002-2V8h-2V7c0-3-2-5-5-5zm0 2c1.7 0 3 1.3 3 3v1H9V7c0-1.7 1.3-3 3-3zm0 8a2 2 0 110 4 2 2 0 010-4z"/></svg>
-    </div>
-    <div class="logo-text-wrapper">
-      <div class="logo-text">AquaVision</div>
-      <div class="logo-sub">Intelligent Inspection</div>
-    </div>
-  </div>
-  <div class="header-status">
-    <div class="status-pill offline" id="statusPill">
-      <div class="status-dot"></div>
-      <span id="statusText">OFFLINE</span>
-    </div>
-    <div class="header-time" id="clockEl">--:--:--</div>
-  </div>
-</header>
-
-<div class="main">
-  <!-- LEFT SIDEBAR -->
-  <div class="sidebar-left">
-
-    <!-- Camera Source Tabs -->
-    <div class="cam-selector">
-      <button class="cam-tab active" id="tab-webcam" onclick="switchSource('webcam')">
-        <svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/></svg>
-        Webcam
-      </button>
-      <button class="cam-tab" id="tab-mobile" onclick="switchSource('mobile')">
-        <svg viewBox="0 0 24 24"><path d="M17 1H7a2 2 0 00-2 2v18a2 2 0 002 2h10a2 2 0 002-2V3a2 2 0 00-2-2zm-5 20a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm5-4H7V4h10v13z"/></svg>
-        Mobile Camera
-      </button>
-      <button class="cam-tab" id="tab-rtsp" onclick="switchSource('rtsp')">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
-        RTSP Stream
-      </button>
-    </div>
-
-    <!-- Config Panel (changes per source) -->
-    <div class="cam-config" id="camConfig">
-      <!-- filled by JS -->
-    </div>
-  </div>
-
-  <!-- CENTER AREA -->
-  <div class="center">
-
-    <!-- Metrics -->
-    <div class="metrics-bar">
-      <div class="metric"><div class="metric-label">FPS</div><div class="metric-val green" id="mFps">--</div><div class="metric-sub">frames/sec</div></div>
-      <div class="metric"><div class="metric-label">Latency</div><div class="metric-val cyan" id="mLatency">-- ms</div><div class="metric-sub">inference</div></div>
-      <div class="metric"><div class="metric-label">Bottles</div><div class="metric-val blue" id="mBottles">0</div><div class="metric-sub">in frame</div></div>
-      <div class="metric"><div class="metric-label">Passed</div><div class="metric-val green" id="mPass">0</div><div class="metric-sub">total</div></div>
-      <div class="metric"><div class="metric-label">Failed</div><div class="metric-val red" id="mFail">0</div><div class="metric-sub">total</div></div>
-    </div>
-
-    <!-- Video Wrapper for Square constraint -->
-    <div class="video-wrapper">
-      <div class="video-area" id="videoArea">
-        <video id="videoEl" autoplay muted playsinline></video>
-        <canvas id="overlayCanvas"></canvas>
-        <div class="video-placeholder" id="placeholder">
-          <svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/></svg>
-          <p id="placeholderText">Select a camera source and click Start</p>
-          <p style="font-size:13px;color:var(--text-muted);margin-top:4px" id="placeholderSub">Choose Webcam, Mobile, or RTSP above</p>
-        </div>
-        <div class="overlay-badge fps-overlay"     id="fpsOverlay">FPS: --</div>
-        <div class="overlay-badge latency-overlay" id="latOverlay">LAT: -- ms</div>
-        <div class="overlay-badge source-badge"    id="sourceBadge">WEBCAM</div>
-        <div class="overlay-badge rec-badge"       id="recBadge"><div class="rec-dot"></div>LIVE</div>
+<div class="app-layout" style="display:flex; flex-direction:column; height:100vh;">
+  <!-- TOP NAVBAR -->
+  <header class="top-navbar">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2zm0 14.5L7.5 12 12 7.5 16.5 12 12 16.5z"/></svg>
       </div>
+      <div class="logo-title">AquaVision Core</div>
     </div>
-
-    <!-- Controls -->
-    <div class="controls">
-      <button class="btn btn-primary" id="btnStart" onclick="startStream()">
-        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        Start Inspection
-      </button>
-      <button class="btn btn-danger" id="btnStop" onclick="stopStream()" style="display:none">
-        <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
-        Stop Inspection
-      </button>
-      <button class="btn btn-ghost" onclick="resetStats()">
-        <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-8 3.58-8 8s3.58 8 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-        Reset Data
-      </button>
-      <div class="controls-right">
-        <button class="btn btn-ghost" onclick="captureSnapshot()">
-          <svg viewBox="0 0 24 24"><path d="M12 15.2A3.2 3.2 0 018.8 12 3.2 3.2 0 0112 8.8a3.2 3.2 0 013.2 3.2 3.2 3.2 0 01-3.2 3.2M12 7a5 5 0 00-5 5 5 5 0 005 5 5 5 0 005-5 5 5 0 00-5-5M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg>
-          Snapshot
-        </button>
+    <div class="user-section">
+      <div class="status-pill offline" id="statusPill">
+        <div class="status-dot"></div>
+        <span id="statusText">SYSTEM OFFLINE</span>
       </div>
+      <div class="clock" id="clockEl">--:--:--</div>
     </div>
+  </header>
 
-  </div>
+  <div class="app-body">
+    <!-- LEFT SIDEBAR -->
+    <nav class="left-sidebar">
+      <div class="nav-item active" onclick="navTo('live', this)">
+        <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"/><rect x="3" y="6" width="12" height="12" rx="2"/></svg></div>
+        Live Camera
+      </div>
+      <div class="nav-item" onclick="navTo('analytics', this)">
+        <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div>
+        Dashboard Analytics
+      </div>
+      <div class="nav-item" onclick="navTo('roi', this)">
+        <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/></svg></div>
+        ROI & Camera Add
+      </div>
+      <div style="flex:1"></div>
+      <div class="nav-item">
+        <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
+        Settings
+      </div>
+    </nav>
 
-  <!-- RIGHT PANEL -->
-  <div class="right">
-    <div class="panel-section">
-      <div class="panel-title">Active Detections</div>
-      <div class="bottle-cards" id="bottleCards">
-        <div class="empty-state">
-          <svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 4 7 7v1H5v12a2 2 0 002 2h10a2 2 0 002-2V8h-2V7c0-3-2-5-5-5z"/></svg>
-          Awaiting inspection data...
+    <main class="content-area">
+      
+      <!-- PAGE 1: LIVE CAMERA -->
+      <div id="page-live" class="page-section active">
+        <div class="live-layout">
+          <div class="live-center">
+            <div class="metrics-bar">
+              <div class="metric"><div class="metric-label">FPS</div><div class="metric-val text-green" id="mFps">--</div></div>
+              <div class="metric"><div class="metric-label">Latency</div><div class="metric-val text-cyan" id="mLatency">--</div></div>
+              <div class="metric"><div class="metric-label">Bottles</div><div class="metric-val text-blue" id="mBottles">0</div></div>
+              <div class="metric"><div class="metric-label">Passed</div><div class="metric-val text-green" id="mPass">0</div></div>
+              <div class="metric"><div class="metric-label">Failed</div><div class="metric-val text-red" id="mFail">0</div></div>
+            </div>
+            <div class="video-wrapper">
+              <div class="video-area" id="videoArea">
+                <video id="videoEl" autoplay muted playsinline></video>
+                <canvas id="overlayCanvas"></canvas>
+                <div class="placeholder" id="placeholder">
+                  <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="12" cy="12" r="4"/></svg>
+                  <p style="font-size:14px; margin-bottom:4px">No Active Stream</p>
+                  <p style="font-size:11px">Configure source in ROI & Add Camera</p>
+                </div>
+                <div class="overlay-badge fps-overlay" id="fpsOverlay">FPS: --</div>
+                <div class="overlay-badge latency-overlay" id="latOverlay">LAT: -- ms</div>
+                <div class="overlay-badge source-badge" id="sourceBadge">WEBCAM</div>
+              </div>
+            </div>
+          </div>
+          <div class="live-right">
+            <div class="panel-section" style="padding-bottom:10px; display:flex; gap:10px;">
+              <button class="btn btn-primary" style="flex:1" id="btnStart" onclick="startStream()">START SYSTEM</button>
+              <button class="btn btn-outline" id="btnStop" style="display:none; flex:1" onclick="stopStream()">STOP</button>
+            </div>
+            <div class="panel-section">
+              <div class="panel-title">Active Detections</div>
+              <div class="bottle-cards" id="bottleCards">
+                <div style="font-size:12px; color:var(--text-muted); text-align:center; padding: 20px 0;">Awaiting feed...</div>
+              </div>
+            </div>
+            <div class="panel-section" style="flex:1">
+              <div class="panel-title">System Logs</div>
+              <div id="logList" style="display:flex; flex-direction:column; gap:8px; font-size:11px; color:var(--text-secondary); font-family:var(--font-mono)"></div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="panel-section">
-      <div class="panel-title">Session Statistics</div>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-val green" id="sTotalPass">0</div><div class="stat-label">Total Passed</div></div>
-        <div class="stat-card"><div class="stat-val red"   id="sTotalFail">0</div><div class="stat-label">Total Failed</div></div>
-        <div class="stat-card"><div class="stat-val amber" id="sYield">--%</div><div class="stat-label">Yield Rate</div></div>
-        <div class="stat-card"><div class="stat-val cyan"  id="sAvgConf">--%</div><div class="stat-label">Avg Confidence</div></div>
-      </div>
-      <div style="margin-top:16px">
-        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600">Defect Breakdown</div>
-        <div id="defectBreakdown"></div>
-      </div>
-    </div>
-    <div class="panel-section">
-      <div class="panel-title">Throughput (Last 20 Frames)</div>
-      <div class="mini-chart" id="miniChart"></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">
-        <span>T-20</span><span>NOW</span>
-      </div>
-    </div>
-    <div class="panel-section">
-      <div class="panel-title">Inspection Log</div>
-      <div class="log-list" id="logList">
-        <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:var(--surface-2);border-radius:8px;font-size:13px;border-left:3px solid var(--neon-cyan)">
-          <div style="color:var(--text-muted);font-family:var(--font-mono);font-size:11px;padding-top:2px;min-width:65px">--:--:--</div>
-          <div style="color:var(--text-primary)">System initialized. Awaiting source selection.</div>
+
+      <!-- PAGE 2: ANALYTICS -->
+      <div id="page-analytics" class="page-section">
+        <div class="analytics-layout">
+          <div class="analytics-header">Detection Analytics</div>
+          <div class="charts-grid">
+            <div class="chart-card">
+              <div class="panel-title">Pass/Fail Ratio</div>
+              <div class="chart-container pie-container">
+                <canvas id="chartPie"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="panel-title">Hourly Detections</div>
+              <div class="chart-container">
+                <canvas id="chartBar"></canvas>
+              </div>
+            </div>
+            <div class="chart-card full-width">
+              <div class="panel-title">Detection Trends</div>
+              <div class="chart-container">
+                <canvas id="chartLine"></canvas>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+
+      <!-- PAGE 3: ROI & CAMERA ADD -->
+      <div id="page-roi" class="page-section">
+        <div class="roi-layout">
+          <div class="roi-center">
+            <div class="cam-source-panel">
+              <div class="panel-title">Camera Configuration</div>
+              <div class="source-tabs">
+                <div class="source-tab active" onclick="switchSource('webcam')">Webcam</div>
+                <div class="source-tab" onclick="switchSource('mobile')">Mobile</div>
+                <div class="source-tab" onclick="switchSource('rtsp')">RTSP</div>
+              </div>
+              <div class="cam-config" id="camConfig">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+            <div class="roi-canvas-container">
+              <div class="roi-workarea">
+                <canvas id="roi-bg-canvas"></canvas>
+                <canvas id="roi-draw-canvas"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="roi-right">
+            <div class="roi-controls">
+              <div class="panel-title">ROI Management</div>
+              <div class="form-group">
+                <label>Region Name</label>
+                <input type="text" id="roiName" placeholder="e.g. Conveyor Belt 1">
+              </div>
+              <div class="form-group">
+                <label>Color</label>
+                <select id="roiColor">
+                  <option value="#06b6d4">Cyan</option>
+                  <option value="#10b981">Green</option>
+                  <option value="#ef4444">Red</option>
+                </select>
+              </div>
+              <button class="btn btn-outline" id="btnDraw" onclick="toggleDrawMode()">Start Drawing ROI</button>
+              <button class="btn btn-primary" onclick="saveROI()">Save Region</button>
+              
+              <div class="panel-title" style="margin-top:20px">Configured Regions</div>
+              <div class="roi-list" id="roiList">
+                <div style="font-size:11px; color:var(--text-muted); text-align:center">No ROIs configured</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
   </div>
 </div>
 
-<script src="js/overlay.js?v=3"></script>
-<script src="js/stats.js?v=3"></script>
-<script src="js/camera.js?v=3"></script>
-<script src="js/app.js?v=3"></script>
+<script>
+  // Simple SPA Navigation
+  function navTo(pageId, el) {
+    document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + pageId).classList.add('active');
+    
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    if(el) el.classList.add('active');
+    
+    // Trigger resize for charts if switching to analytics
+    if(pageId === 'analytics' && window.updateCharts) {
+      setTimeout(window.updateCharts, 100);
+    }
+  }
+</script>
+
+<script src="js/overlay.js?v=4"></script>
+<script src="js/stats.js?v=4"></script>
+<script src="js/camera.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
+<script src="js/analytics.js"></script>
+<script src="js/roi.js"></script>
+
 </body>
 </html>

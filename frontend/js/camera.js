@@ -82,7 +82,7 @@ const Camera = (() => {
     captureCanvas.height = videoEl.videoHeight || 480;
     captureCtx.drawImage(videoEl, 0, 0, captureCanvas.width, captureCanvas.height);
     const b64 = captureCanvas.toDataURL("image/jpeg", JPEG_Q).split(",")[1];
-    if (frameCallback) frameCallback(b64);
+    if (frameCallback) frameCallback(b64, performance.now());
   }
 
   function onFrame(cb) { frameCallback = cb; }

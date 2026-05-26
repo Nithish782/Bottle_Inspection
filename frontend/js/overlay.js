@@ -35,9 +35,6 @@ const Overlay = (() => {
         ctx.strokeRect(rx, ry, rw, rh);
         ctx.setLineDash([]);
         
-        ctx.fillStyle = (r.color || "#06b6d4") + "33"; // 20% opacity
-        ctx.fillRect(rx, ry, rw, rh);
-        
         ctx.fillStyle = r.color || "#06b6d4";
         ctx.font = '12px Inter';
         ctx.shadowBlur = 0;

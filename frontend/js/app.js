@@ -32,6 +32,7 @@ let running       = false;
 let totalPass     = 0;
 let totalFail     = 0;
 let rafId         = null;
+let isProcessingFrame = false;
 
 // ── Init ──────────────────────────────────────────────────────────────
 Camera.init(videoEl);
@@ -50,10 +51,9 @@ async function fetchROIs() {
     if (data.rois) {
       window.activeROIs = data.rois;
       if (typeof renderROIList === 'function' && typeof rois !== 'undefined') {
-         // Sync with roi.js if loaded
-         // Because roi.js uses absolute coordinates for drawing on its own canvas, 
-         // we might need to convert normalized back to absolute if we want them to show in the ROI tab.
-         // For now, we mainly need them for the live view overlay.
+         if (typeof syncROIs === 'function') {
+           syncROIs(data.rois);
+         }
       }
     }
   } catch(e) {
@@ -72,8 +72,9 @@ function switchSource(src) {
   currentSource = src;
 
   // Update tabs
-  ["webcam","mobile","rtsp"].forEach(s => {
-    document.getElementById("tab-"+s).classList.toggle("active", s===src);
+  ["webcam","mobile","rtsp","video"].forEach(s => {
+    const tab = document.getElementById("tab-"+s);
+    if(tab) tab.classList.toggle("active", s===src);
   });
 
   renderConfigPanel(src);
@@ -103,6 +104,11 @@ function renderConfigPanel(src) {
       <input id="rtspUrl" type="text"
         placeholder="e.g. rtsp://admin:pass@192.168.1.10:554/stream"
         value="${localStorage.getItem('rtspUrl')||''}"/>`;
+  } else if (src === "video") {
+    camConfig.innerHTML = `
+      <span class="config-label">Video File:</span>
+      <input id="videoUpload" type="file" accept="video/mp4,video/webm" style="flex:1;background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:4px;border-radius:8px;font-size:12px;"/>
+      <span style="font-size:11px;color:var(--text3)">MP4/WebM supported</span>`;
   }
 }
 
@@ -143,6 +149,7 @@ async function startStream() {
   if (currentSource === "webcam")  await startWebcam();
   else if (currentSource === "mobile") await startMobile();
   else if (currentSource === "rtsp")   await startRTSP();
+  else if (currentSource === "video")  await startVideo();
 }
 
 // 1. WEBCAM
@@ -217,17 +224,44 @@ async function startRTSP() {
   }
 }
 
+// 4. LOCAL VIDEO FILE
+async function startVideo() {
+  const fileInput = document.getElementById("videoUpload");
+  if (!fileInput || !fileInput.files.length) { alert("Please select a video file first."); return; }
+  const file = fileInput.files[0];
+
+  try {
+    const url = URL.createObjectURL(file);
+    videoEl.src = url;
+    videoEl.loop = true;
+    videoEl.muted = true;
+    await videoEl.play();
+    
+    // We can reuse the mobile frame loop
+    Camera.initFromVideo(videoEl);
+    Camera.onFrame(onFrame);
+    
+    setLive(true, "LOCAL VIDEO");
+    Stats.log(logEl, "Local video loaded: " + file.name, "green");
+    connectWS();
+  } catch(e) {
+    Stats.log(logEl, "Video playback error: " + e.message, "red");
+    alert("Could not play video file: " + e.message);
+  }
+}
+
 // ── WebSocket — Webcam/Mobile mode (send frames, get detections) ──────
 function connectWS() {
   if (ws) ws.close();
   ws = new WebSocket(WS_URL);
-  ws.onopen  = () => Stats.log(logEl, "Backend connected", "green");
+  ws.onopen  = () => { Stats.log(logEl, "Backend connected", "green"); isProcessingFrame = false; }
   ws.onclose = () => { if(running) Stats.log(logEl, "Backend disconnected", "amber"); }
-  ws.onerror = () => Stats.log(logEl, "WebSocket error", "red");
+  ws.onerror = () => { Stats.log(logEl, "WebSocket error", "red"); isProcessingFrame = false; }
   ws.onmessage = e => {
+    isProcessingFrame = false;
     const data = JSON.parse(e.data);
     if (data.error) { Stats.log(logEl, data.error, "red"); return; }
-    handleResults(data.bottles, data.latency_ms, data.total_pass, data.total_fail);
+    handleResults(data.bottles||[], data.latency_ms, data.total_pass, data.total_fail);
   };
 }
 
@@ -259,12 +293,15 @@ function connectWS_RTSP() {
 }
 
 // ── Frame sender (webcam/mobile) ──────────────────────────────────────
-function onFrame(b64) {
+function onFrame(b64, ts) {
   if (!running || !ws || ws.readyState !== WebSocket.OPEN) return;
+  if (isProcessingFrame) return; // Apply backpressure to prevent network buffer bloat
+  
+  isProcessingFrame = true;
   const fps = Stats.tickFps();
   mFps.textContent   = fps;
   fpsOvl.textContent = "FPS: " + fps;
-  ws.send(JSON.stringify({ frame: b64 }));
+  ws.send(JSON.stringify({ frame: b64, ts: ts }));
 }
 
 // ── Draw boxes on canvas ──────────────────────────────────────────────
@@ -275,16 +312,20 @@ function drawBoxes(bottles, canvas, img = null) {
   if (img) {
     vW = img.naturalWidth || img.width;
     vH = img.naturalHeight || img.height;
-  } else if (currentSource === "webcam" && videoEl.readyState >= 2) {
+  } else if ((currentSource === "webcam" || currentSource === "video") && videoEl.readyState >= 2) {
     vW = videoEl.videoWidth;
     vH = videoEl.videoHeight;
   }
 
-  // Draw video frame first for webcam
-  if (currentSource === "webcam" && videoEl.readyState >= 2) {
-    const ctx = canvas.getContext("2d");
+  // Ensure canvas internal resolution matches its CSS size
+  if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
     canvas.width  = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
+  }
+
+  // Draw video frame first for webcam
+  if (currentSource === "webcam" && videoEl.readyState >= 2 && !img) {
+    const ctx = canvas.getContext("2d");
     ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
   }
   Overlay.draw(canvas, bottles, vW, vH);
@@ -308,7 +349,10 @@ function handleResults(bottles, latency, tp, tf) {
   fpsOvl.textContent    = "FPS: " + fps;
   latOvl.textContent    = "LAT: " + latency.toFixed(1) + " ms";
 
-  if (currentSource === "webcam") {
+  if (currentSource === "webcam" || currentSource === "video") {
+    // Clear canvas so we don't draw over the native playing video
+    const ctx = overlayEl.getContext("2d");
+    ctx.clearRect(0, 0, overlayEl.width, overlayEl.height);
     drawBoxes(bottles, overlayEl);
   }
   renderBottleCards(bottles);
@@ -327,9 +371,11 @@ function stopStream() {
   Camera.stop();
   if (ws) { ws.close(); ws = null; }
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  isProcessingFrame = false;
 
-  // Clear video src for mobile
-  if (currentSource === "mobile") {
+  // Clear video src for mobile/video
+  if (currentSource === "mobile" || currentSource === "video") {
+    videoEl.pause();
     videoEl.src = "";
   }
 
@@ -346,7 +392,8 @@ function stopStream() {
 // ── UI helpers ────────────────────────────────────────────────────────
 function setLive(on, label="LIVE") {
   placeholder.style.display  = on ? "none" : "flex";
-  videoEl.style.display      = (on && currentSource === "webcam") ? "block" : "none";
+  // Always keep videoEl visible to prevent browser from freezing hidden video decode
+  videoEl.style.display      = (on && (currentSource === "webcam" || currentSource === "video")) ? "block" : "none";
   btnStart.style.display     = on ? "none" : "flex";
   btnStop.style.display      = on ? "flex" : "none";
   fpsOvl.style.display       = on ? "block" : "none";

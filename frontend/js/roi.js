@@ -65,7 +65,10 @@ function saveROI() {
     id: Date.now(),
     name,
     color,
-    ...currentRect
+    x: currentRect.x / drawCanvas.width,
+    y: currentRect.y / drawCanvas.height,
+    w: currentRect.w / drawCanvas.width,
+    h: currentRect.h / drawCanvas.height
   });
   
   currentRect = null;
@@ -95,27 +98,22 @@ function deleteROI(id) {
 
 function renderROIList() {
   const list = document.getElementById('roiList');
+  
   if (rois.length === 0) {
     list.innerHTML = `<div style="font-size:11px; color:var(--text-muted); text-align:center">No ROIs configured</div>`;
-    return;
+  } else {
+    list.innerHTML = rois.map(r => `
+      <div class="roi-item" style="border-left: 3px solid ${r.color}">
+        <span>${r.name}</span>
+        <button class="btn btn-danger" style="padding:4px 8px; font-size:10px" onclick="deleteROI(${r.id})">Del</button>
+      </div>
+    `).join('');
   }
-  list.innerHTML = rois.map(r => `
-    <div class="roi-item" style="border-left: 3px solid ${r.color}">
-      <span>${r.name}</span>
-      <button class="btn btn-danger" style="padding:4px 8px; font-size:10px" onclick="deleteROI(${r.id})">Del</button>
-    </div>
-  `).join('');
   
   const norm_rois = rois.map(r => ({
-    x: r.x / drawCanvas.width,
-    y: r.y / drawCanvas.height,
-    w: r.w / drawCanvas.width,
-    h: r.h / drawCanvas.height,
-    name: r.name,
-    color: r.color
+    x: r.x, y: r.y, w: r.w, h: r.h, name: r.name, color: r.color
   }));
   
-  // Update globally for the live feed overlay to pick up immediately
   window.activeROIs = norm_rois;
   
   fetch('http://localhost:8000/set-roi', {
@@ -125,21 +123,34 @@ function renderROIList() {
   }).catch(console.error);
 }
 
+function syncROIs(fetched_rois) {
+  rois = fetched_rois.map((r, i) => ({
+    id: Date.now() + i,
+    x: r.x, y: r.y, w: r.w, h: r.h,
+    name: r.name, color: r.color || "#06b6d4"
+  }));
+  renderROIList();
+}
+
 function redrawROIs() {
   if (!drawCtx) return;
   drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
   
-  // Draw saved ROIs
+  // Draw saved ROIs (converted to absolute for drawing)
   rois.forEach(r => {
+    const rx = r.x * drawCanvas.width;
+    const ry = r.y * drawCanvas.height;
+    const rw = r.w * drawCanvas.width;
+    const rh = r.h * drawCanvas.height;
+    
     drawCtx.strokeStyle = r.color;
     drawCtx.lineWidth = 2;
-    drawCtx.strokeRect(r.x, r.y, r.w, r.h);
-    drawCtx.fillStyle = r.color + '33'; // 20% opacity
-    drawCtx.fillRect(r.x, r.y, r.w, r.h);
+    drawCtx.strokeRect(rx, ry, rw, rh);
     
+    // No fill, just outline as requested, but keep name
     drawCtx.fillStyle = r.color;
     drawCtx.font = '12px Inter';
-    drawCtx.fillText(r.name, r.x + 4, r.y + 14);
+    drawCtx.fillText(r.name, rx + 4, ry + 14);
   });
   
   // Draw current rect if drawing

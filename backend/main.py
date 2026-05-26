@@ -151,6 +151,7 @@ async def websocket_endpoint(ws: WebSocket):
                 "latency_ms": latency,
                 "total_pass": session["total_pass"],
                 "total_fail": session["total_fail"],
+                "ts":         data.get("ts", 0)
             })
     except WebSocketDisconnect:
         print("[WS] Client disconnected")

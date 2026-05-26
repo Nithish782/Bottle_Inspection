@@ -18,10 +18,34 @@ const Overlay = (() => {
   function draw(canvas, bottles, videoW, videoH) {
     const ctx = canvas.getContext("2d");
 
-    if (!bottles || !bottles.length) return;
-
     const scaleX = canvas.width  / videoW;
     const scaleY = canvas.height / videoH;
+    
+    // Draw active ROIs first (underneath bottles)
+    if (window.activeROIs && window.activeROIs.length) {
+      window.activeROIs.forEach(r => {
+        const rx = r.x * canvas.width;
+        const ry = r.y * canvas.height;
+        const rw = r.w * canvas.width;
+        const rh = r.h * canvas.height;
+        
+        ctx.strokeStyle = r.color || "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(rx, ry, rw, rh);
+        ctx.setLineDash([]);
+        
+        ctx.fillStyle = (r.color || "#06b6d4") + "33"; // 20% opacity
+        ctx.fillRect(rx, ry, rw, rh);
+        
+        ctx.fillStyle = r.color || "#06b6d4";
+        ctx.font = '12px Inter';
+        ctx.shadowBlur = 0;
+        ctx.fillText(r.name || "ROI", rx + 4, ry + 14);
+      });
+    }
+
+    if (!bottles || !bottles.length) return;
 
     bottles.forEach(b => {
       const [x1, y1, x2, y2] = b.box;

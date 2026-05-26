@@ -13,7 +13,6 @@ const btnStop    = document.getElementById("btnStop");
 const statusPill = document.getElementById("statusPill");
 const statusTxt  = document.getElementById("statusText");
 const sourceBadge= document.getElementById("sourceBadge");
-const recBadge   = document.getElementById("recBadge");
 const fpsOvl     = document.getElementById("fpsOverlay");
 const latOvl     = document.getElementById("latOverlay");
 const mFps       = document.getElementById("mFps");
@@ -22,14 +21,9 @@ const mBottles   = document.getElementById("mBottles");
 const mPass      = document.getElementById("mPass");
 const mFail      = document.getElementById("mFail");
 const bottleCards= document.getElementById("bottleCards");
-const sTotalPass = document.getElementById("sTotalPass");
-const sTotalFail = document.getElementById("sTotalFail");
-const sYield     = document.getElementById("sYield");
-const sAvgConf   = document.getElementById("sAvgConf");
-const defectEl   = document.getElementById("defectBreakdown");
-const chartEl    = document.getElementById("miniChart");
 const logEl      = document.getElementById("logList");
 const camConfig  = document.getElementById("camConfig");
+const addCamPopup= document.getElementById("addCameraPopup");
 
 // ── State ─────────────────────────────────────────────────────────────
 let currentSource = "webcam";   // webcam | mobile | rtsp
@@ -41,11 +35,31 @@ let rafId         = null;
 
 // ── Init ──────────────────────────────────────────────────────────────
 Camera.init(videoEl);
-Stats.renderChart(chartEl);
-Stats.renderDefects(defectEl);
 setInterval(clockTick, 1000);
 clockTick();
 renderConfigPanel("webcam");
+fetchROIs(); // Fetch ROIs on load
+
+// Global ROIs to pass to Overlay
+window.activeROIs = [];
+
+async function fetchROIs() {
+  try {
+    const res = await fetch("http://localhost:8000/rois");
+    const data = await res.json();
+    if (data.rois) {
+      window.activeROIs = data.rois;
+      if (typeof renderROIList === 'function' && typeof rois !== 'undefined') {
+         // Sync with roi.js if loaded
+         // Because roi.js uses absolute coordinates for drawing on its own canvas, 
+         // we might need to convert normalized back to absolute if we want them to show in the ROI tab.
+         // For now, we mainly need them for the live view overlay.
+      }
+    }
+  } catch(e) {
+    console.log("Could not fetch ROIs on load:", e);
+  }
+}
 
 function clockTick() {
   const el = document.getElementById("clockEl");
@@ -293,17 +307,11 @@ function handleResults(bottles, latency, tp, tf) {
   mFail.textContent     = tf;
   fpsOvl.textContent    = "FPS: " + fps;
   latOvl.textContent    = "LAT: " + latency.toFixed(1) + " ms";
-  sTotalPass.textContent = tp;
-  sTotalFail.textContent = tf;
-  sYield.textContent    = total ? Math.round(tp/total*100)+"%" : "--%";
-  sAvgConf.textContent  = conf  ? Math.round(conf*100)+"%" : "--%";
 
   if (currentSource === "webcam") {
     drawBoxes(bottles, overlayEl);
   }
   renderBottleCards(bottles);
-  Stats.renderChart(chartEl);
-  Stats.renderDefects(defectEl);
 
   if (bottles.length && Math.random() < 0.04) {
     const b = bottles[0];
@@ -343,11 +351,15 @@ function setLive(on, label="LIVE") {
   btnStop.style.display      = on ? "flex" : "none";
   fpsOvl.style.display       = on ? "block" : "none";
   latOvl.style.display       = on ? "block" : "none";
-  recBadge.style.display     = on ? "flex" : "none";
   sourceBadge.style.display  = on ? "block" : "none";
   sourceBadge.textContent    = label;
   statusPill.className       = on ? "status-pill online" : "status-pill offline";
   statusTxt.textContent      = on ? label : "OFFLINE";
+  
+  if (addCamPopup) {
+    addCamPopup.style.display = on ? "none" : "flex";
+  }
+  
   running = on;
 }
 
@@ -394,9 +406,7 @@ function resetBottleUI(){
 function resetStats(){
   totalPass=0; totalFail=0;
   mPass.textContent="0"; mFail.textContent="0";
-  sTotalPass.textContent="0"; sTotalFail.textContent="0";
-  sYield.textContent="--%"; sAvgConf.textContent="--%";
-  Stats.reset(); Stats.renderChart(chartEl); Stats.renderDefects(defectEl);
+  Stats.reset();
   fetch("http://localhost:8000/reset",{method:"POST"}).catch(()=>{});
   Stats.log(logEl,"Statistics reset","amber");
 }

@@ -72,6 +72,19 @@ function saveROI() {
   document.getElementById('roiName').value = '';
   toggleDrawMode();
   renderROIList();
+  
+  const btn = document.getElementById('btnSaveROI');
+  if (btn) {
+    const oldText = btn.textContent;
+    btn.textContent = "Region Saved!";
+    btn.style.background = "var(--neon-green)";
+    btn.style.color = "#000";
+    setTimeout(() => {
+      btn.textContent = oldText;
+      btn.style.background = "";
+      btn.style.color = "";
+    }, 2000);
+  }
 }
 
 function deleteROI(id) {
@@ -98,8 +111,12 @@ function renderROIList() {
     y: r.y / drawCanvas.height,
     w: r.w / drawCanvas.width,
     h: r.h / drawCanvas.height,
-    name: r.name
+    name: r.name,
+    color: r.color
   }));
+  
+  // Update globally for the live feed overlay to pick up immediately
+  window.activeROIs = norm_rois;
   
   fetch('http://localhost:8000/set-roi', {
     method: 'POST',

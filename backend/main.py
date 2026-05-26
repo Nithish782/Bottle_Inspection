@@ -3,6 +3,8 @@ import time
 import asyncio
 import cv2
 import numpy as np
+import json
+import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -38,15 +40,33 @@ rtsp_cap    = None
 rtsp_active = False
 
 # ── ROI state ─────────────────────────────────────────────────────────
+ROI_FILE = "rois.json"
 active_rois = []
+
+if os.path.exists(ROI_FILE):
+    try:
+        with open(ROI_FILE, "r") as f:
+            active_rois = json.load(f)
+            print(f"[Main] Loaded {len(active_rois)} ROIs from {ROI_FILE}")
+    except Exception as e:
+        print(f"[Main] Error loading ROIs: {e}")
 
 class RoiBody(BaseModel):
     rois: list
+
+@app.get("/rois")
+def get_rois():
+    return {"rois": active_rois}
 
 @app.post("/set-roi")
 def set_roi(body: RoiBody):
     global active_rois
     active_rois = body.rois
+    try:
+        with open(ROI_FILE, "w") as f:
+            json.dump(active_rois, f)
+    except Exception as e:
+        print(f"[Main] Error saving ROIs: {e}")
     return {"status": "ok", "count": len(active_rois)}
 
 class RtspBody(BaseModel):
@@ -104,7 +124,7 @@ async def websocket_endpoint(ws: WebSocket):
                 frame_h, frame_w = frame.shape[:2]
                 filtered_bottles = []
                 for b in bottles:
-                    bx1, by1, bx2, by2 = b["bbox"]
+                    bx1, by1, bx2, by2 = b["box"]
                     bcx = ((bx1 + bx2) / 2) / frame_w
                     bcy = ((by1 + by2) / 2) / frame_h
                     

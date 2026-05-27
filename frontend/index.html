@@ -252,7 +252,17 @@
   .text-green { color: var(--neon-green); }
   .text-red { color: var(--neon-red); }
   .text-cyan { color: var(--neon-cyan); }
+  .text-amber { color: var(--neon-amber); }
+  .text-blue { color: var(--neon-blue); }
   
+  .premium-card {
+    background: linear-gradient(145deg, var(--surface-2) 0%, var(--surface-1) 100%);
+    backdrop-filter: blur(10px);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .premium-card:hover {
+    transform: translateY(-2px);
+  }
 </style>
 </head>
 <body>
@@ -291,7 +301,7 @@
         ROI & Camera Add
       </div>
       <div style="flex:1"></div>
-      <div class="nav-item">
+      <div class="nav-item" onclick="navTo('settings', this)">
         <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
         Settings
       </div>
@@ -439,6 +449,27 @@
         </div>
       </div>
 
+      <!-- PAGE 4: SETTINGS -->
+      <div id="page-settings" class="page-section">
+        <div style="padding: 32px; height: 100%; overflow-y: auto;">
+          <h2 style="margin-bottom: 24px; font-weight: 600; font-size: 24px;">System Settings</h2>
+          
+          <div class="panel-section" style="background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 24px;">
+            <div class="panel-title" style="margin-bottom: 20px;">Appearance</div>
+            <div style="display: flex; gap: 16px;">
+              <button class="btn btn-outline" style="flex: 1; padding: 20px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 12px;" onclick="setTheme('dark')">
+                <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                <span>Dark Theme (Default)</span>
+              </button>
+              <button class="btn btn-outline" style="flex: 1; padding: 20px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 12px;" onclick="setTheme('light')">
+                <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                <span>Light Theme</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -457,14 +488,48 @@
       setTimeout(window.updateCharts, 100);
     }
   }
+
+  function setTheme(theme) {
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.style.setProperty('--bg-base', '#f8fafc');
+      root.style.setProperty('--surface-1', '#ffffff');
+      root.style.setProperty('--surface-2', '#f1f5f9');
+      root.style.setProperty('--surface-3', '#e2e8f0');
+      
+      root.style.setProperty('--border', '#cbd5e1');
+      root.style.setProperty('--border-hover', '#94a3b8');
+      
+      root.style.setProperty('--text-primary', '#0f172a');
+      root.style.setProperty('--text-secondary', '#475569');
+      root.style.setProperty('--text-muted', '#94a3b8');
+    } else {
+      root.style.removeProperty('--bg-base');
+      root.style.removeProperty('--surface-1');
+      root.style.removeProperty('--surface-2');
+      root.style.removeProperty('--surface-3');
+      
+      root.style.removeProperty('--border');
+      root.style.removeProperty('--border-hover');
+      
+      root.style.removeProperty('--text-primary');
+      root.style.removeProperty('--text-secondary');
+      root.style.removeProperty('--text-muted');
+    }
+    localStorage.setItem('theme', theme);
+  }
+  
+  // Load saved theme
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) setTheme(savedTheme);
 </script>
 
-<script src="js/overlay.js?v=10"></script>
-<script src="js/stats.js?v=10"></script>
-<script src="js/camera.js?v=10"></script>
-<script src="js/app.js?v=10"></script>
-<script src="js/analytics.js?v=10"></script>
-<script src="js/roi.js?v=10"></script>
+<script src="js/overlay.js?v=20"></script>
+<script src="js/stats.js?v=20"></script>
+<script src="js/camera.js?v=20"></script>
+<script src="js/app.js?v=20"></script>
+<script src="js/analytics.js?v=20"></script>
+<script src="js/roi.js?v=20"></script>
 
 </body>
 </html>

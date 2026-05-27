@@ -68,6 +68,25 @@ const Overlay = (() => {
 
       // Fill level dashed line
       _fillLine(ctx, b, sx, sy, sw, sh);
+
+      // Label bounding box
+      if (b.label_box) {
+        const [lx1, ly1, lx2, ly2] = b.label_box;
+        const lsx = lx1 * scaleX, lsy = ly1 * scaleY;
+        const lsw = (lx2 - lx1) * scaleX, lsh = (ly2 - ly1) * scaleY;
+        
+        ctx.strokeStyle = (b.label === "label_proper") ? COLOR.pass : ((b.label === "label_torn") ? COLOR.warn : COLOR.fail);
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(lsx, lsy, lsw, lsh);
+        ctx.setLineDash([]);
+        
+        // Label text
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.font = "bold 10px Inter";
+        ctx.shadowBlur = 0;
+        ctx.fillText(b.label.replace(/_/g, " "), lsx + 2, lsy - 4);
+      }
     });
   }
 

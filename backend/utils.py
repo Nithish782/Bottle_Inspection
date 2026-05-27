@@ -143,6 +143,7 @@ def merge_bottle_detections(detections):
                 "label":        label_name,
                 "label_conf":   label_conf,
                 "box":          anchor["box"],
+                "label_box":    label_det["box"] if label_det else None,
                 "pass":         passed,
                 "overall_conf": avg_conf,
             })
@@ -173,6 +174,7 @@ def merge_bottle_detections(detections):
                 "label":        label_det["class_name"] if label_det else "label_missing",
                 "label_conf":   label_det["conf"]       if label_det else 0.0,
                 "box":          f["box"],
+                "label_box":    label_det["box"] if label_det else None,
                 "pass":         passed,
                 "overall_conf": round((f["conf"] + (label_det["conf"] if label_det else 0)) / 2, 3),
             })
@@ -187,6 +189,7 @@ def merge_bottle_detections(detections):
                     "label":        l["class_name"],
                     "label_conf":   l["conf"],
                     "box":          l["box"],
+                    "label_box":    l["box"],
                     "pass":         False,
                     "overall_conf": l["conf"],
                 })

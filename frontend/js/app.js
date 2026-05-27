@@ -415,24 +415,39 @@ function renderBottleCards(bottles) {
   bottleCards.innerHTML = bottles.map(b => {
     const cls    = b.pass ? "pass" : (isWarn(b) ? "warn" : "fail");
     const status = b.pass ? "PASS" : (isWarn(b) ? "WARN" : "FAIL");
-    const fillPct= b.fill==="proper_fill"?75:b.fill==="under_fill"?32:93;
-    const fillCol= b.fill==="proper_fill"?"var(--blue)":b.fill==="under_fill"?"var(--amber)":"var(--red)";
-    const fLabel = b.fill.replace(/_/g," ");
-    const lLabel = b.label.replace(/_/g," ");
+    const fLabel = b.fill.replace(/_/g," ").toUpperCase();
+    const lLabel = b.label.replace(/_/g," ").toUpperCase();
     const fCls   = b.fill==="proper_fill"?"green":b.fill==="under_fill"?"amber":"red";
     const lCls   = b.label==="label_proper"?"green":b.label==="label_torn"?"amber":"red";
     const conf   = Math.round((b.overall_conf||0)*100);
-    return `<div class="bottle-card ${cls}">
-      <div class="bc-header"><span class="bc-id">BOTTLE #${b.id}</span><span class="bc-badge ${cls}">${status}</span></div>
-      <div style="width:100%;height:36px;background:var(--surface3);border-radius:3px;overflow:hidden;display:flex;align-items:flex-end;margin:8px 0">
-        <div style="width:100%;height:${fillPct}%;background:${fillCol};border-radius:3px;transition:height .4s"></div>
+    
+    const glowCol = b.pass ? "rgba(16, 185, 129, 0.15)" : (isWarn(b) ? "rgba(245, 158, 11, 0.15)" : "rgba(239, 68, 68, 0.15)");
+    const borderCol = b.pass ? "var(--neon-green)" : (isWarn(b) ? "var(--neon-amber)" : "var(--neon-red)");
+
+    return `
+    <div class="bottle-card premium-card" style="border-left: 4px solid ${borderCol}; box-shadow: 0 4px 20px ${glowCol}; padding: 16px;">
+      <div class="bc-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${borderCol}" stroke-width="2" style="filter: drop-shadow(0 0 4px ${borderCol})"><path d="M7 2h10l2 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8l2-6z"></path><path d="M5 8h14"></path></svg>
+          <span class="bc-id" style="font-weight: 700; font-size: 13px; letter-spacing: 1px; color: var(--text-primary);">BOTTLE #${b.id}</span>
+        </div>
+        <span class="bc-badge" style="background: ${glowCol}; color: ${borderCol}; border: 1px solid ${borderCol}; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-shadow: 0 0 8px ${borderCol};">${status}</span>
       </div>
-      <div class="bc-rows">
-        <div class="bc-row"><span class="bc-row-label">Fill Level</span><span class="bc-row-val ${fCls}">${fLabel}</span></div>
-        <div class="bc-row"><span class="bc-row-label">Label</span><span class="bc-row-val ${lCls}">${lLabel}</span></div>
-        <div class="bc-row"><span class="bc-row-label">Confidence</span><span class="bc-row-val blue">${conf}%</span></div>
+      
+      <div class="bc-rows" style="display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.1); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+        <div class="bc-row" style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="bc-row-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Fill Level</span>
+          <span class="bc-row-val text-${fCls}" style="font-size: 12px; font-weight: 600;">${fLabel}</span>
+        </div>
+        <div class="bc-row" style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="bc-row-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Label Status</span>
+          <span class="bc-row-val text-${lCls}" style="font-size: 12px; font-weight: 600;">${lLabel}</span>
+        </div>
+        <div class="bc-row" style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="bc-row-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Confidence</span>
+          <span class="bc-row-val text-blue" style="font-size: 12px; font-weight: 700; font-family: var(--font-mono);">${conf}%</span>
+        </div>
       </div>
-      <div class="conf-bar"><div class="conf-fill" style="width:${conf}%;background:${b.pass?"var(--green)":isWarn(b)?"var(--amber)":"var(--red)"}"></div></div>
     </div>`;
   }).join("");
 }

@@ -96,6 +96,34 @@ function deleteROI(id) {
   redrawROIs();
 }
 
+function editROI(id) {
+  const roi = rois.find(r => r.id === id);
+  if (!roi) return;
+  
+  document.getElementById('roiName').value = roi.name;
+  
+  const colorSelect = document.getElementById('roiColor');
+  if (colorSelect) {
+    colorSelect.value = roi.color;
+  }
+  
+  currentRect = {
+    x: roi.x * drawCanvas.width,
+    y: roi.y * drawCanvas.height,
+    w: roi.w * drawCanvas.width,
+    h: roi.h * drawCanvas.height
+  };
+  
+  rois = rois.filter(r => r.id !== id);
+  renderROIList();
+  
+  if (!isDrawMode) {
+    toggleDrawMode();
+  } else {
+    redrawROIs();
+  }
+}
+
 function renderROIList() {
   const list = document.getElementById('roiList');
   
@@ -105,7 +133,10 @@ function renderROIList() {
     list.innerHTML = rois.map(r => `
       <div class="roi-item" style="border-left: 3px solid ${r.color}">
         <span>${r.name}</span>
-        <button class="btn btn-danger" style="padding:4px 8px; font-size:10px" onclick="deleteROI(${r.id})">Del</button>
+        <div>
+          <button class="btn btn-outline" style="padding:4px 8px; font-size:10px; margin-right: 4px;" onclick="editROI(${r.id})">Edit</button>
+          <button class="btn btn-danger" style="padding:4px 8px; font-size:10px" onclick="deleteROI(${r.id})">Del</button>
+        </div>
       </div>
     `).join('');
   }

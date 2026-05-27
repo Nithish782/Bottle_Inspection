@@ -95,14 +95,6 @@
 
   /* TOP NAVBAR COMPONENTS */
   .logo-section { display: flex; align-items: center; gap: 12px; }
-  .logo-circle {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    border: 1px solid var(--neon-cyan);
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
-  }
-  .logo-circle svg { width: 16px; height: 16px; fill: var(--neon-cyan); }
   .logo-title { font-size: 16px; font-weight: 600; letter-spacing: 1px; }
   
   .user-section { display: flex; align-items: center; gap: 16px; }
@@ -263,6 +255,11 @@
   .premium-card:hover {
     transform: translateY(-2px);
   }
+  .logo{
+    width:40px;
+    height:40px;
+    object-fit:contain;
+}
 </style>
 </head>
 <body>
@@ -272,9 +269,9 @@
   <header class="top-navbar">
     <div class="logo-section">
       <div class="logo-circle">
-        <svg viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2zm0 14.5L7.5 12 12 7.5 16.5 12 12 16.5z"/></svg>
+        <img src="assets/seewise_logo.png" alt="Logo" class="logo">
       </div>
-      <div class="logo-title">AquaVision Core</div>
+      <div class="logo-title">SeeWise</div>
     </div>
     <div class="user-section">
       <div class="status-pill offline" id="statusPill">

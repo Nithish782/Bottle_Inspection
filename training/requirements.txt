@@ -1,6 +1,0 @@
-ultralytics
-onnx
-onnxruntime
-albumentations
-opencv-python
-matplotlib

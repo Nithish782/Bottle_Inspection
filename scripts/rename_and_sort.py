@@ -1,1 +1,0 @@
-# Batch rename raw images

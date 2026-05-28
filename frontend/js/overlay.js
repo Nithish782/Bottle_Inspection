@@ -17,6 +17,13 @@ const Overlay = (() => {
 
   function draw(canvas, bottles, videoW, videoH) {
     const ctx = canvas.getContext("2d");
+    const os = window.overlaySettings || {};
+    const showBoxes = os.show_bounding_boxes !== false;
+    const showLabels = os.show_labels !== false;
+    const showConf = os.show_confidence_score !== false;
+    const opacity = (os.overlay_opacity ?? 100) / 100;
+
+    ctx.globalAlpha = opacity;
 
     const scaleX = canvas.width  / videoW;
     const scaleY = canvas.height / videoH;
@@ -42,7 +49,7 @@ const Overlay = (() => {
       });
     }
 
-    if (!bottles || !bottles.length) return;
+    if (!bottles || !bottles.length) { ctx.globalAlpha = 1; return; }
 
     bottles.forEach(b => {
       const [x1, y1, x2, y2] = b.box;
@@ -50,27 +57,30 @@ const Overlay = (() => {
       const sw = (x2 - x1) * scaleX, sh = (y2 - y1) * scaleY;
       const col = getColor(b);
 
-      // Glow
-      ctx.shadowColor = col;
-      ctx.shadowBlur  = 10;
+      if (showBoxes) {
+        // Glow
+        ctx.shadowColor = col;
+        ctx.shadowBlur  = 10;
 
-      // Main rect
-      ctx.strokeStyle = col;
-      ctx.lineWidth   = 2;
-      ctx.strokeRect(sx, sy, sw, sh);
-      ctx.shadowBlur  = 0;
+        // Main rect
+        ctx.strokeStyle = col;
+        ctx.lineWidth   = 2;
+        ctx.strokeRect(sx, sy, sw, sh);
+        ctx.shadowBlur  = 0;
 
-      // Corner brackets
-      _corners(ctx, sx, sy, sw, sh, col);
+        // Corner brackets
+        _corners(ctx, sx, sy, sw, sh, col);
 
-      // Label chip
-      _label(ctx, b, sx, sy, col);
+        // Fill level dashed line
+        _fillLine(ctx, b, sx, sy, sw, sh);
+      }
 
-      // Fill level dashed line
-      _fillLine(ctx, b, sx, sy, sw, sh);
+      if (showLabels) {
+        _label(ctx, b, sx, sy, col, showConf);
+      }
 
-      // Label bounding box
-      if (b.label_box) {
+      // Label bounding box (sub-label box)
+      if (b.label_box && (showBoxes || showLabels)) {
         const [lx1, ly1, lx2, ly2] = b.label_box;
         const lsx = lx1 * scaleX, lsy = ly1 * scaleY;
         const lsw = (lx2 - lx1) * scaleX, lsh = (ly2 - ly1) * scaleY;
@@ -81,13 +91,14 @@ const Overlay = (() => {
         ctx.strokeRect(lsx, lsy, lsw, lsh);
         ctx.setLineDash([]);
         
-        // Label text
         ctx.fillStyle = ctx.strokeStyle;
         ctx.font = "bold 10px Inter";
         ctx.shadowBlur = 0;
         ctx.fillText(b.label.replace(/_/g, " "), lsx + 2, lsy - 4);
       }
     });
+
+    ctx.globalAlpha = 1;
   }
 
   function _corners(ctx, x, y, w, h, col) {
@@ -104,12 +115,15 @@ const Overlay = (() => {
     });
   }
 
-  function _label(ctx, b, sx, sy, col) {
+  function _label(ctx, b, sx, sy, col, showConf) {
     const status = b.pass ? "PASS" : "FAIL";
-    const conf   = Math.round((b.overall_conf || 0) * 100);
     const fill   = (b.fill  || "").replace(/_/g, " ");
     const label  = (b.label || "").replace(/_/g, " ");
-    const text   = `#${b.id || "?"} ${status} | ${fill} | ${label} | ${conf}%`;
+    let text = `#${b.id || "?"} ${status} | ${fill} | ${label}`;
+    if (showConf) {
+      const conf = Math.round((b.overall_conf || 0) * 100);
+      text += ` | ${conf}%`;
+    }
 
     ctx.font = "bold 12px Inter, sans-serif";
     const tw = ctx.measureText(text).width;

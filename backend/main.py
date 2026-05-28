@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import json
 import os
+from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -35,6 +36,106 @@ def health():
 session = {"total_pass": 0, "total_fail": 0, "frames": 0, "counted_ids": set()}
 _min_frame_gap = 1.0 / MAX_FPS
 
+# ── Settings ──────────────────────────────────────────────────────────
+SETTINGS_FILE = "settings.json"
+
+DEFAULT_SETTINGS = {
+    "save_detection_history": True,
+    "default_camera_source": "webcam",
+    "camera_resolution": "720p",
+    "auto_record_on_detection": False,
+    "video_save_path": os.path.join(os.path.dirname(os.path.abspath(__file__)), "recordings"),
+    "recording_format": "mp4",
+    "show_bounding_boxes": True,
+    "show_labels": True,
+    "show_confidence_score": True,
+    "overlay_opacity": 100,
+}
+
+app_settings = {}
+
+def load_settings():
+    global app_settings
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                loaded = json.load(f)
+                app_settings = {**DEFAULT_SETTINGS, **loaded}
+        except Exception as e:
+            print(f"[Main] Error loading settings: {e}")
+            app_settings = dict(DEFAULT_SETTINGS)
+    else:
+        app_settings = dict(DEFAULT_SETTINGS)
+        save_settings()
+
+def save_settings():
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(app_settings, f, indent=4)
+    except Exception as e:
+        print(f"[Main] Error saving settings: {e}")
+
+# ── Detection Recorder ────────────────────────────────────────────────
+class DetectionRecorder:
+    def __init__(self):
+        self.writer = None
+        self.recording = False
+        self.last_detection_time = 0
+        self.current_file = ""
+        self.recording_timeout = 3.0
+
+    def _get_fourcc(self, fmt):
+        codecs = {
+            "mp4": cv2.VideoWriter_fourcc(*"mp4v"),
+            "avi": cv2.VideoWriter_fourcc(*"XVID"),
+            "mov": cv2.VideoWriter_fourcc(*"mp4v"),
+        }
+        return codecs.get(fmt, cv2.VideoWriter_fourcc(*"mp4v"))
+
+    def update(self, frame, has_detections):
+        if not app_settings.get("auto_record_on_detection", False):
+            if self.recording:
+                self.stop()
+            return
+
+        save_path = app_settings.get("video_save_path", "")
+        if save_path:
+            os.makedirs(save_path, exist_ok=True)
+        else:
+            if self.recording:
+                self.stop()
+            return
+
+        rec_format = app_settings.get("recording_format", "mp4")
+
+        if has_detections:
+            if not self.recording:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"detection_recording_{timestamp}.{rec_format}"
+                filepath = os.path.join(save_path, filename)
+                h, w = frame.shape[:2]
+                fourcc = self._get_fourcc(rec_format)
+                self.writer = cv2.VideoWriter(filepath, fourcc, 20.0, (w, h))
+                self.recording = True
+                self.current_file = filepath
+
+            if self.writer:
+                self.writer.write(frame)
+            self.last_detection_time = time.time()
+
+        elif self.recording and time.time() - self.last_detection_time > self.recording_timeout:
+            self.stop()
+
+    def stop(self):
+        if self.writer:
+            self.writer.release()
+            self.writer = None
+        self.recording = False
+        self.current_file = ""
+
+detection_recorder = DetectionRecorder()
+load_settings()
+
 # ── RTSP state ────────────────────────────────────────────────────────
 rtsp_cap    = None
 rtsp_active = False
@@ -53,6 +154,9 @@ if os.path.exists(ROI_FILE):
 
 class RoiBody(BaseModel):
     rois: list
+
+class SettingsBody(BaseModel):
+    settings: dict
 
 @app.get("/rois")
 def get_rois():
@@ -138,6 +242,7 @@ async def websocket_endpoint(ws: WebSocket):
                 bottles = filtered_bottles
                 
             bottles = tracker.update(bottles)
+            detection_recorder.update(frame, len(bottles) > 0)
 
             session["frames"] += 1
             for b in bottles:
@@ -173,6 +278,7 @@ async def websocket_rtsp(ws: WebSocket):
 
             bottles, latency = inspector.run(frame)
             bottles = tracker.update(bottles)
+            detection_recorder.update(frame, len(bottles) > 0)
 
             session["frames"] += 1
             for b in bottles:
@@ -203,6 +309,25 @@ def reset_session():
     session["frames"]     = 0
     session["counted_ids"] = set()
     return {"status": "reset"}
+
+# ── Settings API ──────────────────────────────────────────────────────
+@app.get("/settings")
+def get_settings():
+    return {"settings": app_settings}
+
+@app.post("/settings")
+def update_settings(body: SettingsBody):
+    global app_settings
+    app_settings.update(body.settings)
+    save_settings()
+    return {"status": "ok", "settings": app_settings}
+
+@app.post("/settings/reset")
+def reset_settings():
+    global app_settings
+    app_settings = dict(DEFAULT_SETTINGS)
+    save_settings()
+    return {"status": "ok", "settings": app_settings}
 
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
 

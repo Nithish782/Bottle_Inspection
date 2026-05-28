@@ -44,6 +44,14 @@ fetchROIs(); // Fetch ROIs on load
 // Global ROIs to pass to Overlay
 window.activeROIs = [];
 
+// Global overlay settings (updated by settings.js at runtime)
+window.overlaySettings = {
+  show_bounding_boxes: true,
+  show_labels: true,
+  show_confidence_score: true,
+  overlay_opacity: 100,
+};
+
 async function fetchROIs() {
   try {
     const res = await fetch("http://localhost:8000/rois");

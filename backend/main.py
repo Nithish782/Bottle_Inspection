@@ -82,7 +82,7 @@ class DetectionRecorder:
         self.recording = False
         self.last_detection_time = 0
         self.current_file = ""
-        self.recording_timeout = 3.0
+        self.recording_timeout = 5.0
 
     def _get_fourcc(self, fmt):
         codecs = {
@@ -92,7 +92,69 @@ class DetectionRecorder:
         }
         return codecs.get(fmt, cv2.VideoWriter_fourcc(*"mp4v"))
 
-    def update(self, frame, has_detections):
+    def _draw_overlay(self, frame, bottles):
+        h, w = frame.shape[:2]
+        for b in bottles:
+            x1, y1, x2, y2 = map(int, b["box"])
+            x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w, x2), min(h, y2)
+
+            if b["pass"]:
+                color = (0, 230, 118)
+            elif b.get("fill") in ("under_fill",) or b.get("label") in ("label_torn",):
+                color = (0, 171, 255)
+            else:
+                color = (82, 82, 255)
+
+            # Bounding box
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+
+            # Corner brackets
+            cs = min(16, (x2 - x1) * 0.15, (y2 - y1) * 0.1)
+            for cx, cy, dx, dy in [(x1, y1, 1, 1), (x2, y1, -1, 1), (x1, y2, 1, -1), (x2, y2, -1, -1)]:
+                cv2.line(frame, (int(cx + dx * cs), cy), (cx, cy), color, 3)
+                cv2.line(frame, (cx, cy), (cx, int(cy + dy * cs)), color, 3)
+
+            # Fill line
+            fill = b.get("fill", "")
+            bw = x2 - x1
+            bh = y2 - y1
+            ratio = 0.25
+            line_col = (68, 138, 255)
+            if fill == "under_fill":
+                ratio = 0.65
+                line_col = (0, 171, 255)
+            elif fill == "over_fill":
+                ratio = 0.05
+                line_col = (82, 82, 255)
+            fy = y1 + int(bh * ratio)
+            cv2.line(frame, (x1 + 6, fy), (x2 - 6, fy), line_col, 2, cv2.LINE_AA)
+
+            # Label chip
+            status = "PASS" if b["pass"] else "FAIL"
+            fill_str = fill.replace("_", " ").title()
+            lbl_str = b.get("label", "").replace("_", " ").title()
+            conf = int((b.get("overall_conf", 0) or 0) * 100)
+            text = f"#{b.get('id', '?')} {status} | {fill_str} | {lbl_str} | {conf}%"
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            (tw, th), _ = cv2.getTextSize(text, font, 0.45, 1)
+            lx1, ly1 = max(0, x1), max(0, y1 - 24)
+            lx2, ly2 = min(w, x1 + tw + 18), max(0, y1 - 2)
+            cv2.rectangle(frame, (lx1, ly1), (lx2, ly2), (0, 0, 0), -1)
+            cv2.putText(frame, text, (x1 + 9, y1 - 8), font, 0.45, color, 1, cv2.LINE_AA)
+
+            # Label sub-box
+            if b.get("label_box"):
+                lx1b, ly1b, lx2b, ly2b = map(int, b["label_box"])
+                lx1b, ly1b = max(0, lx1b), max(0, ly1b)
+                lx2b, ly2b = min(w, lx2b), min(h, ly2b)
+                lcol = (0, 230, 118) if b.get("label") == "label_proper" else ((0, 171, 255) if b.get("label") == "label_torn" else (82, 82, 255))
+                cv2.rectangle(frame, (lx1b, ly1b), (lx2b, ly2b), lcol, 1, cv2.LINE_AA)
+                cv2.putText(frame, lbl_str, (lx1b + 2, ly1b - 4), font, 0.4, lcol, 1, cv2.LINE_AA)
+
+        return frame
+
+    def update(self, frame, bottles):
+        has_detections = len(bottles) > 0
         if not app_settings.get("auto_record_on_detection", False):
             if self.recording:
                 self.stop()
@@ -109,13 +171,15 @@ class DetectionRecorder:
         rec_format = app_settings.get("recording_format", "mp4")
 
         if has_detections:
+            frame = self._draw_overlay(frame, bottles)
+
             if not self.recording:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"detection_recording_{timestamp}.{rec_format}"
                 filepath = os.path.join(save_path, filename)
                 h, w = frame.shape[:2]
                 fourcc = self._get_fourcc(rec_format)
-                self.writer = cv2.VideoWriter(filepath, fourcc, 20.0, (w, h))
+                self.writer = cv2.VideoWriter(filepath, fourcc, min(app_settings.get("camera_fps", 20), 30), (w, h))
                 self.recording = True
                 self.current_file = filepath
 
@@ -242,7 +306,7 @@ async def websocket_endpoint(ws: WebSocket):
                 bottles = filtered_bottles
                 
             bottles = tracker.update(bottles)
-            detection_recorder.update(frame, len(bottles) > 0)
+            detection_recorder.update(frame.copy(), bottles)
 
             session["frames"] += 1
             for b in bottles:
@@ -278,7 +342,7 @@ async def websocket_rtsp(ws: WebSocket):
 
             bottles, latency = inspector.run(frame)
             bottles = tracker.update(bottles)
-            detection_recorder.update(frame, len(bottles) > 0)
+            detection_recorder.update(frame.copy(), bottles)
 
             session["frames"] += 1
             for b in bottles:

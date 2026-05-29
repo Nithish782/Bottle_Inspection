@@ -235,10 +235,3 @@ def get_distinct_defect_types():
     rows = conn.execute("SELECT DISTINCT defect_type FROM detections WHERE defect_type != '' ORDER BY defect_type").fetchall()
     conn.close()
     return [r["defect_type"] for r in rows]
-
-
-def clear_all_detections():
-    conn = get_connection()
-    conn.execute("DELETE FROM detections")
-    conn.commit()
-    conn.close()

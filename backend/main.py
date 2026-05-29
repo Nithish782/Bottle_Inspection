@@ -394,17 +394,6 @@ def reset_session():
     session["counted_ids"] = set()
     return {"status": "reset"}
 
-@app.post("/reports/clear-history")
-def clear_report_history():
-    from database.models import clear_all_detections
-    clear_all_detections()
-    session["total_pass"] = 0
-    session["total_fail"] = 0
-    session["frames"]     = 0
-    session["counted_ids"] = set()
-    print("[Main] Detection history and reports cleared")
-    return {"status": "ok", "message": "All detection history and reports data cleared"}
-
 class CameraSourceBody(BaseModel):
     name: str
 

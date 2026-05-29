@@ -99,8 +99,58 @@
   }
 
   window.clearDetectionHistory = function() {
-    localStorage.removeItem("detectionHistory");
-    showToast("Detection history cleared", "success");
+    const modal = document.getElementById("clearHistoryModal");
+    if (modal) modal.style.display = "flex";
+  };
+
+  window.confirmClearHistory = async function() {
+    const btn = document.querySelector("#clearHistoryModal .btn-danger");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Clearing...";
+    }
+    try {
+      // Call backend to clear all detection history and reports
+      const res = await fetch("http://localhost:8000/reports/clear-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        // Clear frontend localStorage
+        localStorage.removeItem("detectionHistory");
+
+        // Reset live page counters
+        const ids = ["mBottles", "mPass", "mFail"];
+        ids.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = "0";
+        });
+
+        // Refresh reports page data if initialized
+        if (typeof initReports === "function") {
+          initReports();
+        }
+
+        showToast("All detection history and reports cleared", "success");
+      } else {
+        showToast("Failed to clear history", "error");
+      }
+    } catch (e) {
+      showToast("Failed to clear history: " + e.message, "error");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Clear History";
+      }
+      window.cancelClearHistory();
+    }
+  };
+
+  window.cancelClearHistory = function() {
+    const modal = document.getElementById("clearHistoryModal");
+    if (modal) modal.style.display = "none";
   };
 
   window.resetAllSettings = function() {

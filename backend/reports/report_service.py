@@ -8,6 +8,7 @@ from database.models import (
     get_analytics_data,
     get_distinct_cameras,
     get_distinct_defect_types,
+    clear_all_detections,
 )
 
 session_start_time = time.time()
@@ -82,3 +83,11 @@ def get_camera_analytics_data():
 
 def get_analytics():
     return get_analytics_data()
+
+
+def clear_all_history():
+    """Clear all detection records from the database and reset the session timer."""
+    global session_start_time
+    clear_all_detections()
+    session_start_time = time.time()
+    return {"status": "ok", "message": "All detection history and reports cleared"}

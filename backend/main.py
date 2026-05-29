@@ -19,6 +19,7 @@ from config   import HOST, PORT, MAX_FPS
 from database.models import init_db
 from reports.report_service import log_bottles, get_summary, get_history
 from reports.report_service import get_camera_analytics_data, get_analytics
+from reports.report_service import clear_all_history
 from reports.export_csv import export_csv
 from reports.export_pdf import generate_pdf
 from reports.export_excel import generate_excel
@@ -471,6 +472,19 @@ def reports_camera_sources():
 @app.get("/reports/analytics")
 def reports_analytics():
     return get_analytics()
+
+@app.post("/reports/clear-history")
+def reports_clear_history():
+    """Clear all detection history, reset counters, and wipe analytics data."""
+    result = clear_all_history()
+    # Also reset in-memory session counters
+    session["total_pass"] = 0
+    session["total_fail"] = 0
+    session["frames"] = 0
+    session["counted_ids"] = set()
+    # Reset tracker state
+    tracker.reset()
+    return result
 
 @app.get("/reports/export/csv")
 def reports_export_csv(page: int = 1, limit: int = 10000,

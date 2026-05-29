@@ -94,5 +94,10 @@ class BottleTracker:
                 result.append(b)
         return result
 
+    def reset(self):
+        """Clear all tracks and reset the ID counter."""
+        self.tracks = []
+        Track._next_id = 1
+
 
 tracker = BottleTracker()

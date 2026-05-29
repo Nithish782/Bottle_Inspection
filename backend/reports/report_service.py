@@ -29,14 +29,19 @@ def log_bottles(bottles, camera_source="Unknown"):
             defects = []
             fill = b.get("fill", "")
             label = b.get("label", "")
-            if fill == "under_fill":
-                defects.append("Underfill")
-            elif fill == "over_fill":
-                defects.append("Overfill")
-            if label == "label_torn":
-                defects.append("Torn Label")
-            elif label == "label_missing":
-                defects.append("Missing Label")
+            
+            defect_map = {
+                "under_fill": "Underfill",
+                "over_fill": "Overfill",
+                "label_torn": "label torn",
+                "label_missing": "label missing"
+            }
+            
+            if fill and fill not in ["proper_fill", "unknown", "bottle"]:
+                defects.append(defect_map.get(fill, fill.replace("_", " ")))
+            if label and label not in ["label_proper", "unknown", "bottle"]:
+                defects.append(defect_map.get(label, label.replace("_", " ")))
+                
             defect_type = ", ".join(defects) if defects else "Unknown Defect"
 
         confidence = b.get("overall_conf", 0) or 0

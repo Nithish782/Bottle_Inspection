@@ -171,7 +171,7 @@ def merge_bottle_detections(detections):
                 "id":           i + 1,
                 "fill":         f["class_name"],
                 "fill_conf":    f["conf"],
-                "label":        label_det["class_name"] if label_det else "label_missing",
+                "label":        label_det["class_name"] if label_det else "unknown",
                 "label_conf":   label_det["conf"]       if label_det else 0.0,
                 "box":          f["box"],
                 "label_box":    label_det["box"] if label_det else None,

@@ -34,6 +34,16 @@ let totalFail     = 0;
 let rafId         = null;
 let isProcessingFrame = false;
 
+// Camera source name — auto-detected from source type, editable by user
+let cameraSourceName = 'Webcam 1';
+
+const SOURCE_NAMES = {
+  webcam: "Webcam 1",
+  mobile: "Mobile Camera",
+  rtsp:   "RTSP Stream",
+  video:  "Local Video",
+};
+
 // ── Init ──────────────────────────────────────────────────────────────
 Camera.init(videoEl);
 setInterval(clockTick, 1000);
@@ -79,6 +89,11 @@ function switchSource(src) {
   if (running) stopStream();
   currentSource = src;
 
+  // Auto-detect camera source name from source type
+  const detectedName = SOURCE_NAMES[src] || "Unknown";
+  cameraSourceName = detectedName;
+  updateCameraSource(detectedName);
+
   // Update tabs
   ["webcam","mobile","rtsp","video"].forEach(s => {
     const tab = document.getElementById("tab-"+s);
@@ -86,38 +101,52 @@ function switchSource(src) {
   });
 
   renderConfigPanel(src);
-  Stats.log(logEl, `Source switched to: ${src.toUpperCase()}`, "blue");
+  Stats.log(logEl, `Source switched to: ${src.toUpperCase()} (${detectedName})`, "blue");
+}
+
+async function updateCameraSource(name) {
+  cameraSourceName = name;
+  try {
+    await fetch("http://localhost:8000/camera-source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    });
+  } catch(e) {
+    console.log("Could not update camera source:", e);
+  }
 }
 
 function renderConfigPanel(src) {
+  let sourceConfig = "";
   if (src === "webcam") {
-    camConfig.innerHTML = `
+    sourceConfig = `
       <span class="config-label">Camera:</span>
       <select id="deviceSelect" style="flex:1;background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;font-size:13px;font-family:var(--font)">
         <option value="">Loading cameras...</option>
       </select>`;
     loadWebcamDevices();
-
   } else if (src === "mobile") {
-    camConfig.innerHTML = `
+    sourceConfig = `
       <span class="config-label">Mobile IP:</span>
       <input id="mobileUrl" type="text"
         placeholder="e.g. http://192.168.1.5:8080/video"
         value="${localStorage.getItem('mobileUrl')||''}"/>
       <span style="font-size:11px;color:var(--text3)">Use IP Webcam app (Android) or EpocCam (iOS)</span>`;
-
   } else if (src === "rtsp") {
-    camConfig.innerHTML = `
+    sourceConfig = `
       <span class="config-label">RTSP URL:</span>
       <input id="rtspUrl" type="text"
         placeholder="e.g. rtsp://admin:pass@192.168.1.10:554/stream"
         value="${localStorage.getItem('rtspUrl')||''}"/>`;
   } else if (src === "video") {
-    camConfig.innerHTML = `
+    sourceConfig = `
       <span class="config-label">Video File:</span>
       <input id="videoUpload" type="file" accept="video/mp4,video/webm" style="flex:1;background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:4px;border-radius:8px;font-size:12px;"/>
       <span style="font-size:11px;color:var(--text3)">MP4/WebM supported</span>`;
   }
+
+  camConfig.innerHTML = sourceConfig;
 }
 
 async function loadWebcamDevices() {
@@ -154,6 +183,11 @@ async function loadWebcamDevices() {
 
 // ── Start stream ──────────────────────────────────────────────────────
 async function startStream() {
+  // Auto-detect camera source from current source type before starting
+  const detectedName = SOURCE_NAMES[currentSource] || "Unknown";
+  cameraSourceName = detectedName;
+  await updateCameraSource(detectedName);
+
   if (currentSource === "webcam")  await startWebcam();
   else if (currentSource === "mobile") await startMobile();
   else if (currentSource === "rtsp")   await startRTSP();

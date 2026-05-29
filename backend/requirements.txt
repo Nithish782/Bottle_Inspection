@@ -6,3 +6,5 @@ opencv-python
 numpy
 python-multipart
 websockets
+reportlab
+openpyxl

@@ -2,7 +2,7 @@
     "save_detection_history": true,
     "default_camera_source": "webcam",
     "camera_resolution": "720p",
-    "auto_record_on_detection": true,
+    "auto_record_on_detection": false,
     "video_save_path": "C:\\Users\\nithish\\Desktop\\bottle_proj\\recordings",
     "recording_format": "mp4",
     "show_bounding_boxes": true,

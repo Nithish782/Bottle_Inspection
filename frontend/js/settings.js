@@ -99,8 +99,38 @@
   }
 
   window.clearDetectionHistory = function() {
-    localStorage.removeItem("detectionHistory");
-    showToast("Detection history cleared", "success");
+    const modal = document.getElementById("clearHistoryModal");
+    if (modal) modal.style.display = "flex";
+  };
+
+  window.confirmClearHistory = async function() {
+    try {
+      const res = await fetch("http://localhost:8000/reports/clear-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        localStorage.removeItem("detectionHistory");
+        showToast("All detection history and reports cleared", "success");
+        // Refresh reports page if visible
+        if (typeof loadSummary === 'function') loadSummary();
+        if (typeof loadHistory === 'function') loadHistory();
+        if (typeof loadCameraAnalytics === 'function') loadCameraAnalytics();
+        if (typeof loadAnalyticsCharts === 'function') loadAnalyticsCharts();
+        if (typeof loadCameraSourceFilter === 'function') loadCameraSourceFilter();
+      } else {
+        showToast("Failed to clear history", "error");
+      }
+    } catch (e) {
+      showToast("Failed to clear history: backend may be offline", "error");
+    }
+    window.cancelClearHistory();
+  };
+
+  window.cancelClearHistory = function() {
+    const modal = document.getElementById("clearHistoryModal");
+    if (modal) modal.style.display = "none";
   };
 
   window.resetAllSettings = function() {

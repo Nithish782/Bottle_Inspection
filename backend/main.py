@@ -16,6 +16,13 @@ from inference import inspector
 from tracker  import tracker
 from camera   import RTSPCameraSource
 from config   import HOST, PORT, MAX_FPS
+from database.models import init_db
+from reports.report_service import log_bottles, get_summary, get_history
+from reports.report_service import get_camera_analytics_data, get_analytics
+from reports.export_csv import export_csv
+from reports.export_pdf import generate_pdf
+from reports.export_excel import generate_excel
+from database.models import get_distinct_cameras
 
 app = FastAPI(title="AquaVision Bottle Inspection API")
 
@@ -32,8 +39,11 @@ app.add_middleware(
 def health():
     return {"status": "ok"}
 
+# ── Init DB on startup ────────────────────────────────────────────────
+init_db()
+
 # ── Session counters ──────────────────────────────────────────────────
-session = {"total_pass": 0, "total_fail": 0, "frames": 0, "counted_ids": set()}
+session = {"total_pass": 0, "total_fail": 0, "frames": 0, "counted_ids": set(), "camera_source": "Webcam 1"}
 _min_frame_gap = 1.0 / MAX_FPS
 
 # ── Settings ──────────────────────────────────────────────────────────
@@ -309,11 +319,16 @@ async def websocket_endpoint(ws: WebSocket):
             detection_recorder.update(frame.copy(), bottles)
 
             session["frames"] += 1
+            new_bottles = []
             for b in bottles:
                 if b.get("id") not in session["counted_ids"]:
                     session["counted_ids"].add(b.get("id"))
                     if b["pass"]: session["total_pass"] += 1
                     else:         session["total_fail"] += 1
+                    new_bottles.append(b)
+
+            if new_bottles:
+                log_bottles(new_bottles, session.get("camera_source", "Webcam 1"))
 
             await ws.send_json({
                 "bottles":    bottles,
@@ -345,11 +360,16 @@ async def websocket_rtsp(ws: WebSocket):
             detection_recorder.update(frame.copy(), bottles)
 
             session["frames"] += 1
+            new_bottles = []
             for b in bottles:
                 if b.get("id") not in session["counted_ids"]:
                     session["counted_ids"].add(b.get("id"))
                     if b["pass"]: session["total_pass"] += 1
                     else:         session["total_fail"] += 1
+                    new_bottles.append(b)
+
+            if new_bottles:
+                log_bottles(new_bottles, session.get("camera_source", "Webcam 1"))
 
             # Encode frame as JPEG base64 to send to browser
             _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
@@ -374,6 +394,30 @@ def reset_session():
     session["counted_ids"] = set()
     return {"status": "reset"}
 
+@app.post("/reports/clear-history")
+def clear_report_history():
+    from database.models import clear_all_detections
+    clear_all_detections()
+    session["total_pass"] = 0
+    session["total_fail"] = 0
+    session["frames"]     = 0
+    session["counted_ids"] = set()
+    print("[Main] Detection history and reports cleared")
+    return {"status": "ok", "message": "All detection history and reports data cleared"}
+
+class CameraSourceBody(BaseModel):
+    name: str
+
+@app.get("/camera-source")
+def get_camera_source():
+    return {"name": session.get("camera_source", "Unknown")}
+
+@app.post("/camera-source")
+def set_camera_source(body: CameraSourceBody):
+    session["camera_source"] = body.name
+    print(f"[Main] Camera source changed to: {body.name}")
+    return {"status": "ok", "name": body.name}
+
 # ── Settings API ──────────────────────────────────────────────────────
 @app.get("/settings")
 def get_settings():
@@ -392,6 +436,104 @@ def reset_settings():
     app_settings = dict(DEFAULT_SETTINGS)
     save_settings()
     return {"status": "ok", "settings": app_settings}
+
+# ── Reports API ───────────────────────────────────────────────────────
+class ReportsQueryBody(BaseModel):
+    page: int = 1
+    limit: int = 20
+    status: str | None = None
+    defect_type: str | None = None
+    camera_source: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    sort_by: str = "timestamp"
+    sort_order: str = "desc"
+
+@app.get("/reports/summary")
+def reports_summary():
+    summary = get_summary()
+    active = session.get("camera_source")
+    if active:
+        summary["active_camera_source"] = active
+    return summary
+
+@app.get("/reports/history")
+def reports_history(page: int = 1, limit: int = 20,
+                    status: str | None = None,
+                    defect_type: str | None = None,
+                    camera_source: str | None = None,
+                    start_date: str | None = None,
+                    end_date: str | None = None,
+                    sort_by: str = "timestamp",
+                    sort_order: str = "desc"):
+    return get_history(page=page, limit=limit, status=status,
+                       defect_type=defect_type, camera_source=camera_source,
+                       start_date=start_date, end_date=end_date,
+                       sort_by=sort_by, sort_order=sort_order)
+
+@app.get("/reports/camera-analytics")
+def reports_camera_analytics():
+    return {"cameras": get_camera_analytics_data()}
+
+@app.get("/reports/camera-sources")
+def reports_camera_sources():
+    return {"sources": get_distinct_cameras()}
+
+@app.get("/reports/analytics")
+def reports_analytics():
+    return get_analytics()
+
+@app.get("/reports/export/csv")
+def reports_export_csv(page: int = 1, limit: int = 10000,
+                       status: str | None = None,
+                       defect_type: str | None = None,
+                       camera_source: str | None = None,
+                       start_date: str | None = None,
+                       end_date: str | None = None):
+    csv_data = export_csv(page=page, limit=limit, status=status,
+                          defect_type=defect_type, camera_source=camera_source,
+                          start_date=start_date, end_date=end_date)
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        iter([csv_data]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=inspection_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
+    )
+
+@app.get("/reports/export/pdf")
+def reports_export_pdf():
+    try:
+        pdf_buffer = generate_pdf()
+        from fastapi.responses import StreamingResponse
+        return StreamingResponse(
+            iter([pdf_buffer.getvalue()]),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=inspection_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"}
+        )
+    except RuntimeError as e:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/reports/export/excel")
+def reports_export_excel(page: int = 1, limit: int = 10000,
+                         status: str | None = None,
+                         defect_type: str | None = None,
+                         camera_source: str | None = None,
+                         start_date: str | None = None,
+                         end_date: str | None = None):
+    try:
+        excel_buffer = generate_excel(page=page, limit=limit, status=status,
+                                      defect_type=defect_type, camera_source=camera_source,
+                                      start_date=start_date, end_date=end_date)
+        from fastapi.responses import StreamingResponse
+        return StreamingResponse(
+            iter([excel_buffer.getvalue()]),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=inspection_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"}
+        )
+    except RuntimeError as e:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
 

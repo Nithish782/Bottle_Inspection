@@ -24,6 +24,7 @@ from reports.export_csv import export_csv
 from reports.export_pdf import generate_pdf
 from reports.export_excel import generate_excel
 from database.models import get_distinct_cameras
+from auth.auth import router as auth_router
 
 app = FastAPI(title="AquaVision Bottle Inspection API")
 
@@ -33,6 +34,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router)
 
 
 

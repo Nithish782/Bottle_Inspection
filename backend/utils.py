@@ -105,11 +105,11 @@ def merge_bottle_detections(detections):
             for fi, f in enumerate(fills):
                 if fi in used_fills:
                     continue
-                iou = box_iou(ab, np.array(f["box"]))
+                iou = box_ioa(ab, np.array(f["box"]))
                 if iou > best_f_iou:
                     best_f_iou, best_f = iou, fi
-            fill_det = fills[best_f] if best_f is not None and best_f_iou > 0.05 else None
-            if best_f is not None and best_f_iou > 0.05:
+            fill_det = fills[best_f] if best_f is not None and best_f_iou > 0.3 else None
+            if best_f is not None and best_f_iou > 0.3:
                 used_fills.add(best_f)
 
             # Best overlapping label
@@ -117,11 +117,11 @@ def merge_bottle_detections(detections):
             for li, l in enumerate(labels):
                 if li in used_labels:
                     continue
-                iou = box_iou(ab, np.array(l["box"]))
+                iou = box_ioa(ab, np.array(l["box"]))
                 if iou > best_l_iou:
                     best_l_iou, best_l = iou, li
-            label_det = labels[best_l] if best_l is not None and best_l_iou > 0.05 else None
-            if best_l is not None and best_l_iou > 0.05:
+            label_det = labels[best_l] if best_l is not None and best_l_iou > 0.3 else None
+            if best_l is not None and best_l_iou > 0.3:
                 used_labels.add(best_l)
 
             fill_name  = fill_det["class_name"]  if fill_det  else "unknown"
@@ -196,6 +196,14 @@ def merge_bottle_detections(detections):
 
     return bottles
 
+
+def box_ioa(b1, b2):
+    """Intersection over Area of b2 (the sub-box)."""
+    xi1 = max(b1[0], b2[0]); yi1 = max(b1[1], b2[1])
+    xi2 = min(b1[2], b2[2]); yi2 = min(b1[3], b2[3])
+    inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+    area2 = (b2[2]-b2[0]) * (b2[3]-b2[1])
+    return inter / (area2 + 1e-6)
 
 def box_iou(b1, b2):
     """IoU between two boxes [x1,y1,x2,y2]."""

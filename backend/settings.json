@@ -1,5 +1,5 @@
 {
-    "save_detection_history": true,
+    "save_detection_history": false,
     "default_camera_source": "webcam",
     "camera_resolution": "720p",
     "auto_record_on_detection": false,

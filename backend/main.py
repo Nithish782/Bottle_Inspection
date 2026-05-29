@@ -324,15 +324,16 @@ async def websocket_endpoint(ws: WebSocket):
 
             session["frames"] += 1
             new_bottles = []
-            for b in bottles:
-                if b.get("id") not in session["counted_ids"]:
-                    session["counted_ids"].add(b.get("id"))
-                    if b["pass"]: session["total_pass"] += 1
-                    else:         session["total_fail"] += 1
-                    new_bottles.append(b)
+            if app_settings.get("save_detection_history", True):
+                for b in bottles:
+                    if b.get("id") not in session["counted_ids"]:
+                        session["counted_ids"].add(b.get("id"))
+                        if b["pass"]: session["total_pass"] += 1
+                        else:         session["total_fail"] += 1
+                        new_bottles.append(b)
 
-            if new_bottles:
-                log_bottles(new_bottles, session.get("camera_source", "Webcam 1"))
+                if new_bottles:
+                    log_bottles(new_bottles, session.get("camera_source", "Webcam 1"))
 
             await ws.send_json({
                 "bottles":    bottles,
@@ -365,15 +366,16 @@ async def websocket_rtsp(ws: WebSocket):
 
             session["frames"] += 1
             new_bottles = []
-            for b in bottles:
-                if b.get("id") not in session["counted_ids"]:
-                    session["counted_ids"].add(b.get("id"))
-                    if b["pass"]: session["total_pass"] += 1
-                    else:         session["total_fail"] += 1
-                    new_bottles.append(b)
+            if app_settings.get("save_detection_history", True):
+                for b in bottles:
+                    if b.get("id") not in session["counted_ids"]:
+                        session["counted_ids"].add(b.get("id"))
+                        if b["pass"]: session["total_pass"] += 1
+                        else:         session["total_fail"] += 1
+                        new_bottles.append(b)
 
-            if new_bottles:
-                log_bottles(new_bottles, session.get("camera_source", "Webcam 1"))
+                if new_bottles:
+                    log_bottles(new_bottles, session.get("camera_source", "Webcam 1"))
 
             # Encode frame as JPEG base64 to send to browser
             _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])

@@ -13,7 +13,6 @@ const btnStop    = document.getElementById("btnStop");
 const statusPill = document.getElementById("statusPill");
 const statusTxt  = document.getElementById("statusText");
 const sourceBadge= document.getElementById("sourceBadge");
-const recBadge   = document.getElementById("recBadge");
 const fpsOvl     = document.getElementById("fpsOverlay");
 const latOvl     = document.getElementById("latOverlay");
 const mFps       = document.getElementById("mFps");
@@ -22,14 +21,9 @@ const mBottles   = document.getElementById("mBottles");
 const mPass      = document.getElementById("mPass");
 const mFail      = document.getElementById("mFail");
 const bottleCards= document.getElementById("bottleCards");
-const sTotalPass = document.getElementById("sTotalPass");
-const sTotalFail = document.getElementById("sTotalFail");
-const sYield     = document.getElementById("sYield");
-const sAvgConf   = document.getElementById("sAvgConf");
-const defectEl   = document.getElementById("defectBreakdown");
-const chartEl    = document.getElementById("miniChart");
 const logEl      = document.getElementById("logList");
 const camConfig  = document.getElementById("camConfig");
+const addCamPopup= document.getElementById("addCameraPopup");
 
 // ── State ─────────────────────────────────────────────────────────────
 let currentSource = "webcam";   // webcam | mobile | rtsp
@@ -38,14 +32,52 @@ let running       = false;
 let totalPass     = 0;
 let totalFail     = 0;
 let rafId         = null;
+let isProcessingFrame = false;
+
+// Camera source name — auto-detected from source type, editable by user
+let cameraSourceName = 'Webcam 1';
+
+const SOURCE_NAMES = {
+  webcam: "Webcam 1",
+  mobile: "Mobile Camera",
+  rtsp:   "RTSP Stream",
+  video:  "Local Video",
+};
 
 // ── Init ──────────────────────────────────────────────────────────────
 Camera.init(videoEl);
-Stats.renderChart(chartEl);
-Stats.renderDefects(defectEl);
 setInterval(clockTick, 1000);
 clockTick();
 renderConfigPanel("webcam");
+fetchROIs(); // Fetch ROIs on load
+
+// Global ROIs to pass to Overlay
+window.activeROIs = [];
+
+// Global overlay settings (updated by settings.js at runtime)
+window.overlaySettings = {
+  show_bounding_boxes: true,
+  show_labels: true,
+  show_confidence_score: true,
+  overlay_opacity: 100,
+};
+
+async function fetchROIs() {
+  try {
+    const res = await fetch("http://localhost:8000/rois");
+    const data = await res.json();
+    if (data.rois) {
+      window.activeROIs = data.rois;
+      if (typeof renderROIList === 'function' && typeof rois !== 'undefined') {
+         if (typeof syncROIs === 'function') {
+           syncROIs(data.rois);
+         }
+      }
+    }
+  } catch(e) {
+    console.log("Could not fetch ROIs on load:", e);
+  }
+}
 
 function clockTick() {
   const el = document.getElementById("clockEl");
@@ -57,39 +89,64 @@ function switchSource(src) {
   if (running) stopStream();
   currentSource = src;
 
+  // Auto-detect camera source name from source type
+  const detectedName = SOURCE_NAMES[src] || "Unknown";
+  cameraSourceName = detectedName;
+  updateCameraSource(detectedName);
+
   // Update tabs
-  ["webcam","mobile","rtsp"].forEach(s => {
-    document.getElementById("tab-"+s).classList.toggle("active", s===src);
+  ["webcam","mobile","rtsp","video"].forEach(s => {
+    const tab = document.getElementById("tab-"+s);
+    if(tab) tab.classList.toggle("active", s===src);
   });
 
   renderConfigPanel(src);
-  Stats.log(logEl, `Source switched to: ${src.toUpperCase()}`, "blue");
+  Stats.log(logEl, `Source switched to: ${src.toUpperCase()} (${detectedName})`, "blue");
+}
+
+async function updateCameraSource(name) {
+  cameraSourceName = name;
+  try {
+    await fetch("http://localhost:8000/camera-source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    });
+  } catch(e) {
+    console.log("Could not update camera source:", e);
+  }
 }
 
 function renderConfigPanel(src) {
+  let sourceConfig = "";
   if (src === "webcam") {
-    camConfig.innerHTML = `
+    sourceConfig = `
       <span class="config-label">Camera:</span>
       <select id="deviceSelect" style="flex:1;background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;font-size:13px;font-family:var(--font)">
         <option value="">Loading cameras...</option>
       </select>`;
     loadWebcamDevices();
-
   } else if (src === "mobile") {
-    camConfig.innerHTML = `
+    sourceConfig = `
       <span class="config-label">Mobile IP:</span>
       <input id="mobileUrl" type="text"
         placeholder="e.g. http://192.168.1.5:8080/video"
         value="${localStorage.getItem('mobileUrl')||''}"/>
       <span style="font-size:11px;color:var(--text3)">Use IP Webcam app (Android) or EpocCam (iOS)</span>`;
-
   } else if (src === "rtsp") {
-    camConfig.innerHTML = `
+    sourceConfig = `
       <span class="config-label">RTSP URL:</span>
       <input id="rtspUrl" type="text"
         placeholder="e.g. rtsp://admin:pass@192.168.1.10:554/stream"
         value="${localStorage.getItem('rtspUrl')||''}"/>`;
+  } else if (src === "video") {
+    sourceConfig = `
+      <span class="config-label">Video File:</span>
+      <input id="videoUpload" type="file" accept="video/mp4,video/webm" style="flex:1;background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:4px;border-radius:8px;font-size:12px;"/>
+      <span style="font-size:11px;color:var(--text3)">MP4/WebM supported</span>`;
   }
+
+  camConfig.innerHTML = sourceConfig;
 }
 
 async function loadWebcamDevices() {
@@ -126,9 +183,15 @@ async function loadWebcamDevices() {
 
 // ── Start stream ──────────────────────────────────────────────────────
 async function startStream() {
+  // Auto-detect camera source from current source type before starting
+  const detectedName = SOURCE_NAMES[currentSource] || "Unknown";
+  cameraSourceName = detectedName;
+  await updateCameraSource(detectedName);
+
   if (currentSource === "webcam")  await startWebcam();
   else if (currentSource === "mobile") await startMobile();
   else if (currentSource === "rtsp")   await startRTSP();
+  else if (currentSource === "video")  await startVideo();
 }
 
 // 1. WEBCAM
@@ -203,17 +266,44 @@ async function startRTSP() {
   }
 }
 
+// 4. LOCAL VIDEO FILE
+async function startVideo() {
+  const fileInput = document.getElementById("videoUpload");
+  if (!fileInput || !fileInput.files.length) { alert("Please select a video file first."); return; }
+  const file = fileInput.files[0];
+
+  try {
+    const url = URL.createObjectURL(file);
+    videoEl.src = url;
+    videoEl.loop = true;
+    videoEl.muted = true;
+    await videoEl.play();
+    
+    // We can reuse the mobile frame loop
+    Camera.initFromVideo(videoEl);
+    Camera.onFrame(onFrame);
+    
+    setLive(true, "LOCAL VIDEO");
+    Stats.log(logEl, "Local video loaded: " + file.name, "green");
+    connectWS();
+  } catch(e) {
+    Stats.log(logEl, "Video playback error: " + e.message, "red");
+    alert("Could not play video file: " + e.message);
+  }
+}
+
 // ── WebSocket — Webcam/Mobile mode (send frames, get detections) ──────
 function connectWS() {
   if (ws) ws.close();
   ws = new WebSocket(WS_URL);
-  ws.onopen  = () => Stats.log(logEl, "Backend connected", "green");
+  ws.onopen  = () => { Stats.log(logEl, "Backend connected", "green"); isProcessingFrame = false; }
   ws.onclose = () => { if(running) Stats.log(logEl, "Backend disconnected", "amber"); }
-  ws.onerror = () => Stats.log(logEl, "WebSocket error", "red");
+  ws.onerror = () => { Stats.log(logEl, "WebSocket error", "red"); isProcessingFrame = false; }
   ws.onmessage = e => {
+    isProcessingFrame = false;
     const data = JSON.parse(e.data);
     if (data.error) { Stats.log(logEl, data.error, "red"); return; }
-    handleResults(data.bottles, data.latency_ms, data.total_pass, data.total_fail);
+    handleResults(data.bottles||[], data.latency_ms, data.total_pass, data.total_fail);
   };
 }
 
@@ -245,12 +335,15 @@ function connectWS_RTSP() {
 }
 
 // ── Frame sender (webcam/mobile) ──────────────────────────────────────
-function onFrame(b64) {
+function onFrame(b64, ts) {
   if (!running || !ws || ws.readyState !== WebSocket.OPEN) return;
+  if (isProcessingFrame) return; // Apply backpressure to prevent network buffer bloat
+  
+  isProcessingFrame = true;
   const fps = Stats.tickFps();
   mFps.textContent   = fps;
   fpsOvl.textContent = "FPS: " + fps;
-  ws.send(JSON.stringify({ frame: b64 }));
+  ws.send(JSON.stringify({ frame: b64, ts: ts }));
 }
 
 // ── Draw boxes on canvas ──────────────────────────────────────────────
@@ -261,16 +354,20 @@ function drawBoxes(bottles, canvas, img = null) {
   if (img) {
     vW = img.naturalWidth || img.width;
     vH = img.naturalHeight || img.height;
-  } else if (currentSource === "webcam" && videoEl.readyState >= 2) {
+  } else if ((currentSource === "webcam" || currentSource === "video") && videoEl.readyState >= 2) {
     vW = videoEl.videoWidth;
     vH = videoEl.videoHeight;
   }
 
-  // Draw video frame first for webcam
-  if (currentSource === "webcam" && videoEl.readyState >= 2) {
-    const ctx = canvas.getContext("2d");
+  // Ensure canvas internal resolution matches its CSS size
+  if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
     canvas.width  = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
+  }
+
+  // Draw video frame first for webcam
+  if (currentSource === "webcam" && videoEl.readyState >= 2 && !img) {
+    const ctx = canvas.getContext("2d");
     ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
   }
   Overlay.draw(canvas, bottles, vW, vH);
@@ -293,17 +390,14 @@ function handleResults(bottles, latency, tp, tf) {
   mFail.textContent     = tf;
   fpsOvl.textContent    = "FPS: " + fps;
   latOvl.textContent    = "LAT: " + latency.toFixed(1) + " ms";
-  sTotalPass.textContent = tp;
-  sTotalFail.textContent = tf;
-  sYield.textContent    = total ? Math.round(tp/total*100)+"%" : "--%";
-  sAvgConf.textContent  = conf  ? Math.round(conf*100)+"%" : "--%";
 
-  if (currentSource === "webcam") {
+  if (currentSource === "webcam" || currentSource === "video") {
+    // Clear canvas so we don't draw over the native playing video
+    const ctx = overlayEl.getContext("2d");
+    ctx.clearRect(0, 0, overlayEl.width, overlayEl.height);
     drawBoxes(bottles, overlayEl);
   }
   renderBottleCards(bottles);
-  Stats.renderChart(chartEl);
-  Stats.renderDefects(defectEl);
 
   if (bottles.length && Math.random() < 0.04) {
     const b = bottles[0];
@@ -319,9 +413,11 @@ function stopStream() {
   Camera.stop();
   if (ws) { ws.close(); ws = null; }
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  isProcessingFrame = false;
 
-  // Clear video src for mobile
-  if (currentSource === "mobile") {
+  // Clear video src for mobile/video
+  if (currentSource === "mobile" || currentSource === "video") {
+    videoEl.pause();
     videoEl.src = "";
   }
 
@@ -338,16 +434,21 @@ function stopStream() {
 // ── UI helpers ────────────────────────────────────────────────────────
 function setLive(on, label="LIVE") {
   placeholder.style.display  = on ? "none" : "flex";
-  videoEl.style.display      = (on && currentSource === "webcam") ? "block" : "none";
+  // Always keep videoEl visible to prevent browser from freezing hidden video decode
+  videoEl.style.display      = (on && (currentSource === "webcam" || currentSource === "video")) ? "block" : "none";
   btnStart.style.display     = on ? "none" : "flex";
   btnStop.style.display      = on ? "flex" : "none";
   fpsOvl.style.display       = on ? "block" : "none";
   latOvl.style.display       = on ? "block" : "none";
-  recBadge.style.display     = on ? "flex" : "none";
   sourceBadge.style.display  = on ? "block" : "none";
   sourceBadge.textContent    = label;
   statusPill.className       = on ? "status-pill online" : "status-pill offline";
   statusTxt.textContent      = on ? label : "OFFLINE";
+  
+  if (addCamPopup) {
+    addCamPopup.style.display = on ? "none" : "flex";
+  }
+  
   running = on;
 }
 
@@ -356,24 +457,39 @@ function renderBottleCards(bottles) {
   bottleCards.innerHTML = bottles.map(b => {
     const cls    = b.pass ? "pass" : (isWarn(b) ? "warn" : "fail");
     const status = b.pass ? "PASS" : (isWarn(b) ? "WARN" : "FAIL");
-    const fillPct= b.fill==="proper_fill"?75:b.fill==="under_fill"?32:93;
-    const fillCol= b.fill==="proper_fill"?"var(--blue)":b.fill==="under_fill"?"var(--amber)":"var(--red)";
-    const fLabel = b.fill.replace(/_/g," ");
-    const lLabel = b.label.replace(/_/g," ");
+    const fLabel = b.fill.replace(/_/g," ").toUpperCase();
+    const lLabel = b.label.replace(/_/g," ").toUpperCase();
     const fCls   = b.fill==="proper_fill"?"green":b.fill==="under_fill"?"amber":"red";
     const lCls   = b.label==="label_proper"?"green":b.label==="label_torn"?"amber":"red";
     const conf   = Math.round((b.overall_conf||0)*100);
-    return `<div class="bottle-card ${cls}">
-      <div class="bc-header"><span class="bc-id">BOTTLE #${b.id}</span><span class="bc-badge ${cls}">${status}</span></div>
-      <div style="width:100%;height:36px;background:var(--surface3);border-radius:3px;overflow:hidden;display:flex;align-items:flex-end;margin:8px 0">
-        <div style="width:100%;height:${fillPct}%;background:${fillCol};border-radius:3px;transition:height .4s"></div>
+    
+    const glowCol = b.pass ? "rgba(16, 185, 129, 0.15)" : (isWarn(b) ? "rgba(245, 158, 11, 0.15)" : "rgba(239, 68, 68, 0.15)");
+    const borderCol = b.pass ? "var(--neon-green)" : (isWarn(b) ? "var(--neon-amber)" : "var(--neon-red)");
+
+    return `
+    <div class="bottle-card premium-card" style="border-left: 4px solid ${borderCol}; box-shadow: 0 4px 20px ${glowCol}; padding: 16px;">
+      <div class="bc-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${borderCol}" stroke-width="2" style="filter: drop-shadow(0 0 4px ${borderCol})"><path d="M7 2h10l2 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8l2-6z"></path><path d="M5 8h14"></path></svg>
+          <span class="bc-id" style="font-weight: 700; font-size: 13px; letter-spacing: 1px; color: var(--text-primary);">BOTTLE #${b.id}</span>
+        </div>
+        <span class="bc-badge" style="background: ${glowCol}; color: ${borderCol}; border: 1px solid ${borderCol}; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-shadow: 0 0 8px ${borderCol};">${status}</span>
       </div>
-      <div class="bc-rows">
-        <div class="bc-row"><span class="bc-row-label">Fill Level</span><span class="bc-row-val ${fCls}">${fLabel}</span></div>
-        <div class="bc-row"><span class="bc-row-label">Label</span><span class="bc-row-val ${lCls}">${lLabel}</span></div>
-        <div class="bc-row"><span class="bc-row-label">Confidence</span><span class="bc-row-val blue">${conf}%</span></div>
+      
+      <div class="bc-rows" style="display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.1); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+        <div class="bc-row" style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="bc-row-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Fill Level</span>
+          <span class="bc-row-val text-${fCls}" style="font-size: 12px; font-weight: 600;">${fLabel}</span>
+        </div>
+        <div class="bc-row" style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="bc-row-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Label Status</span>
+          <span class="bc-row-val text-${lCls}" style="font-size: 12px; font-weight: 600;">${lLabel}</span>
+        </div>
+        <div class="bc-row" style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="bc-row-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Confidence</span>
+          <span class="bc-row-val text-blue" style="font-size: 12px; font-weight: 700; font-family: var(--font-mono);">${conf}%</span>
+        </div>
       </div>
-      <div class="conf-bar"><div class="conf-fill" style="width:${conf}%;background:${b.pass?"var(--green)":isWarn(b)?"var(--amber)":"var(--red)"}"></div></div>
     </div>`;
   }).join("");
 }
@@ -394,9 +510,7 @@ function resetBottleUI(){
 function resetStats(){
   totalPass=0; totalFail=0;
   mPass.textContent="0"; mFail.textContent="0";
-  sTotalPass.textContent="0"; sTotalFail.textContent="0";
-  sYield.textContent="--%"; sAvgConf.textContent="--%";
-  Stats.reset(); Stats.renderChart(chartEl); Stats.renderDefects(defectEl);
+  Stats.reset();
   fetch("http://localhost:8000/reset",{method:"POST"}).catch(()=>{});
   Stats.log(logEl,"Statistics reset","amber");
 }

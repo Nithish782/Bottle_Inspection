@@ -6,3 +6,8 @@ opencv-python
 numpy
 python-multipart
 websockets
+reportlab
+openpyxl
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt

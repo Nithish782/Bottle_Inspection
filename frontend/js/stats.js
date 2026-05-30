@@ -34,8 +34,8 @@ const Stats = (() => {
       if (b.overall_conf) { confHistory.push(b.overall_conf); }
       if (confHistory.length > 200) confHistory.shift();
       if (!b.pass) {
-        if (b.fill  === "fill_under")    defects.fill_under++;
-        if (b.fill  === "fill_over")     defects.fill_over++;
+        if (b.fill  === "under_fill")    defects.fill_under++;
+        if (b.fill  === "over_fill")     defects.fill_over++;
         if (b.label === "label_torn")    defects.label_torn++;
         if (b.label === "label_missing") defects.label_missing++;
       }

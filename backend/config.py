@@ -33,7 +33,7 @@ PASS_CLASSES  = {1, 4}
 
 # ── Server ─────────────────────────────────────────────────────────────
 HOST = "localhost"
-PORT = 8000
+PORT = 8100
 
 # ── Performance ────────────────────────────────────────────────────────
 MAX_FPS        = 30      # cap frame processing rate

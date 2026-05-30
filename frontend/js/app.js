@@ -1,6 +1,6 @@
 // app.js — Multi-camera: Webcam | Mobile | RTSP
 
-const WS_URL = "ws://localhost:8000/ws";
+const WS_URL = "ws://localhost:8100/ws";
 
 // ── DOM refs ──────────────────────────────────────────────────────────
 const videoEl    = document.getElementById("videoEl");
@@ -64,7 +64,7 @@ window.overlaySettings = {
 
 async function fetchROIs() {
   try {
-    const res = await fetch("http://localhost:8000/rois");
+    const res = await fetch("http://localhost:8100/rois");
     const data = await res.json();
     if (data.rois) {
       window.activeROIs = data.rois;
@@ -107,7 +107,7 @@ function switchSource(src) {
 async function updateCameraSource(name) {
   cameraSourceName = name;
   try {
-    await fetch("http://localhost:8000/camera-source", {
+    await fetch("http://localhost:8100/camera-source", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name })
@@ -221,7 +221,7 @@ async function startMobile() {
   localStorage.setItem("mobileUrl", url);
 
   try {
-    const res = await fetch("http://localhost:8000/open-rtsp", {
+    const res = await fetch("http://localhost:8100/open-rtsp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url })
@@ -247,7 +247,7 @@ async function startRTSP() {
 
   // Tell backend to open RTSP, then connect WS which streams frames back
   try {
-    const res = await fetch("http://localhost:8000/open-rtsp", {
+    const res = await fetch("http://localhost:8100/open-rtsp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url })
@@ -310,7 +310,7 @@ function connectWS() {
 // ── WebSocket — RTSP mode (receive frame + detections from backend) ───
 function connectWS_RTSP() {
   if (ws) ws.close();
-  ws = new WebSocket("ws://localhost:8000/ws-rtsp");
+  ws = new WebSocket("ws://localhost:8100/ws-rtsp");
   ws.onopen  = () => Stats.log(logEl, "RTSP stream active", "green");
   ws.onclose = () => { if(running) Stats.log(logEl, "RTSP stream closed", "amber"); }
   ws.onerror = () => Stats.log(logEl, "RTSP WebSocket error", "red");
@@ -423,7 +423,7 @@ function stopStream() {
 
   // Tell backend to close RTSP
   if (currentSource === "rtsp") {
-    fetch("http://localhost:8000/close-rtsp", { method:"POST" }).catch(()=>{});
+    fetch("http://localhost:8100/close-rtsp", { method:"POST" }).catch(()=>{});
   }
 
   setLive(false);
@@ -511,7 +511,7 @@ function resetStats(){
   totalPass=0; totalFail=0;
   mPass.textContent="0"; mFail.textContent="0";
   Stats.reset();
-  fetch("http://localhost:8000/reset",{method:"POST"}).catch(()=>{});
+  fetch("http://localhost:8100/reset",{method:"POST"}).catch(()=>{});
   Stats.log(logEl,"Statistics reset","amber");
 }
 

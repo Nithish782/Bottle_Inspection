@@ -1,6 +1,6 @@
 // reports.js — Backend-integrated Reports Dashboard
 
-const REPORTS_API = "http://localhost:8000/reports";
+const REPORTS_API = "http://localhost:8100/reports";
 
 // ── State ─────────────────────────────────────────────────────────────
 const reportState = {

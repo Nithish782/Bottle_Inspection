@@ -147,7 +147,7 @@ function renderROIList() {
   
   window.activeROIs = norm_rois;
   
-  fetch('http://localhost:8000/set-roi', {
+  fetch('http://localhost:8100/set-roi', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rois: norm_rois })

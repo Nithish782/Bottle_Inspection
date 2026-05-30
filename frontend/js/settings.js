@@ -1,5 +1,5 @@
 (function() {
-  const API_URL = "http://localhost:8000/settings";
+  const API_URL = "http://localhost:8100/settings";
   let currentSettings = {};
 
   const $ = id => document.getElementById(id);
@@ -111,7 +111,7 @@
     }
     try {
       // Call backend to clear all detection history and reports
-      const res = await fetch("http://localhost:8000/reports/clear-history", {
+      const res = await fetch("http://localhost:8100/reports/clear-history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: "{}"
